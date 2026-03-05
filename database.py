@@ -1,9 +1,15 @@
 import sqlite3
 
+DB_NAME = "attendance.db"
+
+
+def get_connection():
+    return sqlite3.connect(DB_NAME)
+
 
 def init_db():
 
-    conn = sqlite3.connect("attendance.db")
+    conn = get_connection()
     c = conn.cursor()
 
     c.execute("""
@@ -11,8 +17,7 @@ def init_db():
         telegram_user_id INTEGER PRIMARY KEY,
         name TEXT,
         dob TEXT,
-        notes TEXT,
-        is_verified INTEGER
+        notes TEXT
     )
     """)
 
@@ -27,7 +32,7 @@ def init_db():
     c.execute("""
     CREATE TABLE IF NOT EXISTS class_codes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_role_id INTEGER,
+        role_id INTEGER,
         class_code TEXT,
         venue_name TEXT,
         venue_lat REAL,
@@ -41,9 +46,10 @@ def init_db():
         telegram_user_id INTEGER,
         role_name TEXT,
         class_code TEXT,
-        distance REAL,
-        status TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        latitude REAL,
+        longitude REAL,
+        date TEXT,
+        timestamp TEXT
     )
     """)
 
