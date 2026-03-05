@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 import sqlite3
 
+from utils.sheets_logger import log_attendance
 
 LATE_ROLE_SELECT, LATE_CLASS_SELECT, ETA_INPUT = range(3)
 
@@ -117,7 +118,33 @@ async def receive_eta(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect("attendance.db")
     c = conn.cursor()
 
-    # duplicate late report protection
+    # --------------------------------------------------
+    # Prevent late report AFTER attendance submission
+    # --------------------------------------------------
+
+    c.execute("""
+    SELECT id FROM attendance_logs
+    WHERE telegram_user_id=?
+    AND class_code=?
+    AND status='Present'
+    AND date(timestamp)=date('now')
+    """, (user_id, class_code))
+
+    already_attended = c.fetchone()
+
+    if already_attended:
+
+        conn.close()
+
+        await update.message.reply_text(
+            "Attendance already submitted. Late report not allowed."
+        )
+
+        return ConversationHandler.END
+
+    # --------------------------------------------------
+    # Duplicate late report protection
+    # --------------------------------------------------
 
     c.execute("""
     SELECT id FROM attendance_logs
@@ -139,6 +166,10 @@ async def receive_eta(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return ConversationHandler.END
 
+    # --------------------------------------------------
+    # Insert late record
+    # --------------------------------------------------
+
     c.execute("""
     INSERT INTO attendance_logs
     (telegram_user_id, role_name, class_code, distance, status)
@@ -147,17 +178,28 @@ async def receive_eta(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     conn.commit()
     conn.close()
+    
+    log_attendance(name, role, class_code, 0, "LATE")
+
+    # --------------------------------------------------
+    # Send message to correct topic
+    # --------------------------------------------------
 
     message = (
-        "LATE REPORT\n\n"
+        "⚠️ LATE REPORT\n\n"
         f"Name: {name}\n"
         f"Role: {role}\n"
         f"Class: {class_code}\n"
         f"ETA: {eta}"
     )
 
+    topic_map = context.bot_data["ROLE_TOPICS"]
+
+    thread_id = topic_map.get(role)
+
     await context.bot.send_message(
         chat_id=context.bot_data["ADMIN_CHAT_ID"],
+        message_thread_id=thread_id,
         text=message
     )
 

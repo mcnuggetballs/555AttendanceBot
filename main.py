@@ -19,6 +19,7 @@ from handlers.onboarding import (
     get_notes,
     get_class_code,
     save_venue,
+    save_venue_name,
     more_codes,
     NAME,
     DOB,
@@ -26,6 +27,7 @@ from handlers.onboarding import (
     NOTES,
     CLASS_CODE,
     VENUE,
+    VENUE_NAME,
     MORE_CODES
 )
 
@@ -164,6 +166,10 @@ def main():
 
             VENUE: [
                 MessageHandler(filters.LOCATION, save_venue)
+            ],
+
+            VENUE_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, save_venue_name)
             ],
 
             MORE_CODES: [

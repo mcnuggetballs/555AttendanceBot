@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 import sqlite3
 
 
-NAME, DOB, ROLE_SELECT, NOTES, CLASS_CODE, VENUE, MORE_CODES = range(7)
+NAME, DOB, ROLE_SELECT, NOTES, CLASS_CODE, VENUE, VENUE_NAME, MORE_CODES = range(8)
 
 
 ROLES = [
@@ -37,7 +37,6 @@ def build_role_keyboard(selected_roles):
         ])
 
     keyboard.append([InlineKeyboardButton("Done", callback_data="done")])
-    keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -61,7 +60,7 @@ async def start_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if existing and existing[0]:
 
         await update.message.reply_text(
-            "Account already created. Contact admin if you need changes."
+            "Account already created."
         )
 
         return ConversationHandler.END
@@ -120,21 +119,11 @@ async def onboarding_select_role(update: Update, context: ContextTypes.DEFAULT_T
 
     elif data == "done":
 
-        if not selected_roles:
-            await query.answer("Select at least one role")
-            return ROLE_SELECT
-
         await query.edit_message_text(
             "Any notes? Type skip if none."
         )
 
         return NOTES
-
-    elif data == "cancel":
-
-        await query.edit_message_text("Cancelled.")
-
-        return ConversationHandler.END
 
 
 async def get_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -196,8 +185,22 @@ async def save_venue(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     location = update.message.location
 
-    lat = location.latitude
-    lng = location.longitude
+    context.user_data["venue_lat"] = location.latitude
+    context.user_data["venue_lng"] = location.longitude
+
+    await update.message.reply_text(
+        "Enter venue name (example: AMK Ave 4 Blk 156):"
+    )
+
+    return VENUE_NAME
+
+
+async def save_venue_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    venue_name = update.message.text
+
+    lat = context.user_data["venue_lat"]
+    lng = context.user_data["venue_lng"]
 
     class_code = context.user_data["current_class_code"]
     roles = context.user_data["roles"]
@@ -218,9 +221,9 @@ async def save_venue(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     c.execute("""
         INSERT INTO class_codes
-        (user_role_id, class_code, venue_lat, venue_lng)
-        VALUES (?,?,?,?)
-    """, (role_id, class_code, lat, lng))
+        (user_role_id, class_code, venue_name, venue_lat, venue_lng)
+        VALUES (?,?,?,?,?)
+    """, (role_id, class_code, venue_name, lat, lng))
 
     conn.commit()
     conn.close()
@@ -269,11 +272,3 @@ async def more_codes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         return CLASS_CODE
-
-    else:
-
-        await update.message.reply_text(
-            "Please answer yes or no."
-        )
-
-        return MORE_CODES

@@ -29,6 +29,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_role_id INTEGER,
         class_code TEXT,
+        venue_name TEXT,
         venue_lat REAL,
         venue_lng REAL
     )

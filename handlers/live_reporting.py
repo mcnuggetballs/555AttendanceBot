@@ -20,8 +20,7 @@ ROLE_RADIUS = {
     "Student Mentor": 100,
     "External Instructor": 1000,
     "AEP Performer": 1000,
-    "Private Instructor": 100,
-    "Admin": 100
+    "Private Instructor": 100
 }
 
 
@@ -49,8 +48,8 @@ async def start_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
     c = conn.cursor()
 
     c.execute("""
-    SELECT role_name FROM user_roles
-    WHERE telegram_user_id=?
+        SELECT role_name FROM user_roles
+        WHERE telegram_user_id=?
     """, (user_id,))
 
     roles = c.fetchall()
@@ -59,13 +58,16 @@ async def start_live(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
 
     for role in roles:
+
         keyboard.append([
             InlineKeyboardButton(role[0], callback_data=f"role|{role[0]}")
         ])
 
+    markup = InlineKeyboardMarkup(keyboard)
+
     await update.message.reply_text(
         "Select role:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=markup
     )
 
     return LIVE_ROLE_SELECT
@@ -86,15 +88,15 @@ async def live_select_role(update: Update, context: ContextTypes.DEFAULT_TYPE):
     c = conn.cursor()
 
     c.execute("""
-    SELECT id FROM user_roles
-    WHERE telegram_user_id=? AND role_name=?
+        SELECT id FROM user_roles
+        WHERE telegram_user_id=? AND role_name=?
     """, (user_id, role))
 
     role_id = c.fetchone()[0]
 
     c.execute("""
-    SELECT class_code FROM class_codes
-    WHERE user_role_id=?
+        SELECT class_code FROM class_codes
+        WHERE user_role_id=?
     """, (role_id,))
 
     classes = c.fetchall()
@@ -103,13 +105,16 @@ async def live_select_role(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
 
     for code in classes:
+
         keyboard.append([
             InlineKeyboardButton(code[0], callback_data=f"class|{code[0]}")
         ])
 
+    markup = InlineKeyboardMarkup(keyboard)
+
     await query.edit_message_text(
         "Select class:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=markup
     )
 
     return CLASS_SELECT
@@ -147,11 +152,11 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect("attendance.db")
     c = conn.cursor()
 
-    # Duplicate attendance protection
     c.execute("""
     SELECT id FROM attendance_logs
     WHERE telegram_user_id=?
     AND class_code=?
+    AND status IN ('Present')
     AND date(timestamp)=date('now')
     """, (user_id, class_code))
 
@@ -168,22 +173,23 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     c.execute("""
-    SELECT id FROM user_roles
-    WHERE telegram_user_id=? AND role_name=?
+        SELECT id FROM user_roles
+        WHERE telegram_user_id=? AND role_name=?
     """, (user_id, role))
 
     role_id = c.fetchone()[0]
 
     c.execute("""
-    SELECT venue_lat, venue_lng
-    FROM class_codes
-    WHERE user_role_id=? AND class_code=?
+        SELECT venue_name, venue_lat, venue_lng
+        FROM class_codes
+        WHERE user_role_id=? AND class_code=?
     """, (role_id, class_code))
 
     venue = c.fetchone()
 
-    venue_lat = venue[0]
-    venue_lng = venue[1]
+    venue_name = venue[0]
+    venue_lat = venue[1]
+    venue_lng = venue[2]
 
     distance = calculate_distance(
         user_lat,
@@ -195,14 +201,14 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     allowed_radius = ROLE_RADIUS.get(role, 100)
 
     if distance > allowed_radius:
-        status = "OUTSIDE_RADIUS"
+        status = "Outside_Radius"
     else:
-        status = "SUCCESS"
+        status = "Present"
 
     c.execute("""
-    INSERT INTO attendance_logs
-    (telegram_user_id, role_name, class_code, distance, status)
-    VALUES (?,?,?,?,?)
+        INSERT INTO attendance_logs
+        (telegram_user_id, role_name, class_code, distance, status)
+        VALUES (?,?,?,?,?)
     """, (user_id, role, class_code, distance, status))
 
     conn.commit()
@@ -215,17 +221,14 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Name: {name}\n"
         f"Role: {role}\n"
         f"Class: {class_code}\n"
+        f"Venue: {venue_name}\n"
         f"Distance: {int(distance)}m\n"
         f"Status: {status}"
     )
 
-    topic_map = context.bot_data["ROLE_TOPICS"]
-
-    thread_id = topic_map.get(role)
-
     await context.bot.send_message(
         chat_id=context.bot_data["ADMIN_CHAT_ID"],
-        message_thread_id=thread_id,
+        message_thread_id=context.bot_data["ROLE_TOPICS"].get(role),
         text=message
     )
 
