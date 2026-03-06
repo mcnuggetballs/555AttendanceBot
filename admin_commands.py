@@ -1,15 +1,15 @@
 from telegram import InlineKeyboardButton
-from telegram.ext import ContextTypes
 from ui import show_screen
+from database import get_connection
+from keyboards import menu_keyboard
 import sqlite3
 
 
 async def today(update, context):
 
-    conn = sqlite3.connect("attendance.db")
+    conn = get_connection()
     c = conn.cursor()
 
-    # Present
     c.execute("""
     SELECT users.name, attendance_logs.role_name, attendance_logs.class_code
     FROM attendance_logs
@@ -20,7 +20,6 @@ async def today(update, context):
 
     present = c.fetchall()
 
-    # Late
     c.execute("""
     SELECT users.name, late_reports.role_name, late_reports.class_code
     FROM late_reports
@@ -35,13 +34,11 @@ async def today(update, context):
 
     if not present and not late:
 
-        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
-
         await show_screen(
             update,
             context,
             "No attendance recorded today.",
-            keyboard
+            menu_keyboard()
         )
         return
 
@@ -53,14 +50,12 @@ async def today(update, context):
     for name, role, cls in late:
         message += f"{name} — {role} — {cls} — ⏰ Late\n"
 
-    keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
-
-    await show_screen(update, context, message, keyboard)
+    await show_screen(update, context, message, menu_keyboard())
 
 
 async def who(update, context):
 
-    conn = sqlite3.connect("attendance.db")
+    conn = get_connection()
     c = conn.cursor()
 
     c.execute("""
@@ -88,7 +83,7 @@ async def who_class(update, context):
     query = update.callback_query
     cls = query.data.split("|")[1]
 
-    conn = sqlite3.connect("attendance.db")
+    conn = get_connection()
     c = conn.cursor()
 
     c.execute("""

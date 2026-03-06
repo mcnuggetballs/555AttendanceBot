@@ -1,6 +1,7 @@
 from database import get_connection
 from ui import show_screen
 from telegram import InlineKeyboardButton
+from keyboards import menu_keyboard
 
 
 async def show_status(update, context):
@@ -24,7 +25,7 @@ async def show_status(update, context):
             update,
             context,
             "You do not have an account yet.\n\nUse Create Account from the menu.",
-            [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+            menu_keyboard()
         )
 
         conn.close()
@@ -59,6 +60,4 @@ async def show_status(update, context):
 
     conn.close()
 
-    keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
-
-    await show_screen(update, context, text, keyboard)
+    await show_screen(update, context, text, menu_keyboard())

@@ -4,7 +4,8 @@ DB_NAME = "attendance.db"
 
 
 def get_connection():
-    return sqlite3.connect(DB_NAME)
+    # timeout prevents "database is locked" errors when multiple users write at once
+    return sqlite3.connect(DB_NAME, timeout=10)
 
 
 def init_db():
@@ -64,6 +65,12 @@ def init_db():
         date TEXT,
         timestamp TEXT
     )
+    """)
+
+    # Prevent duplicate attendance submissions
+    c.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_attendance
+    ON attendance_logs(telegram_user_id, class_code, date)
     """)
 
     conn.commit()
