@@ -53,5 +53,17 @@ def init_db():
     )
     """)
 
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS late_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        telegram_user_id INTEGER,
+        role_name TEXT,
+        class_code TEXT,
+        eta TEXT,
+        date TEXT,
+        timestamp TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()

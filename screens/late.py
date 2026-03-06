@@ -1,7 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from database import get_connection
 from utils.sheets_logger import log_attendance
-import math
 from datetime import datetime
 
 
@@ -16,9 +15,6 @@ ROLE_TOPICS = {
     "Student Mentor": 39,
     "AEP Performer": 40
 }
-
-
-ATTENDANCE_RADIUS = 120
 
 
 def nav_buttons():
@@ -36,25 +32,9 @@ def get_msg(update):
     return update.callback_query.message
 
 
-def distance_m(lat1, lon1, lat2, lon2):
-
-    R = 6371000
-
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-
-    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-
-    return R * c
-
-
 # ROLE SCREEN
 
-async def start_live(update, context):
+async def start_late(update, context):
 
     user_id = update.effective_user.id
 
@@ -75,7 +55,7 @@ async def start_live(update, context):
 
     for role in roles:
         keyboard.append([
-            InlineKeyboardButton(role, callback_data=f"live_role|{role}")
+            InlineKeyboardButton(role, callback_data=f"late_role|{role}")
         ])
 
     keyboard.append([
@@ -83,7 +63,7 @@ async def start_live(update, context):
     ])
 
     await get_msg(update).reply_text(
-        "Select role:",
+        "Select role for late report:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -92,7 +72,7 @@ async def start_live(update, context):
 
 async def show_class_screen(update, context):
 
-    role = context.user_data.get("live_role")
+    role = context.user_data.get("late_role")
 
     conn = get_connection()
     c = conn.cursor()
@@ -114,7 +94,7 @@ async def show_class_screen(update, context):
 
     for cls in classes:
         keyboard.append([
-            InlineKeyboardButton(cls, callback_data=f"live_class|{cls}")
+            InlineKeyboardButton(cls, callback_data=f"late_class|{cls}")
         ])
 
     keyboard.append([
@@ -134,42 +114,42 @@ async def select_class(update, context):
 
     role = query.data.split("|")[1]
 
-    context.user_data["live_role"] = role
+    context.user_data["late_role"] = role
 
     await show_class_screen(update, context)
 
 
-# LOCATION SCREEN
+# ETA SCREEN
 
-async def request_location(update, context):
+async def request_eta(update, context):
 
     query = update.callback_query
 
     cls = query.data.split("|")[1]
 
-    context.user_data["live_class"] = cls
+    context.user_data["late_class"] = cls
 
     await query.message.reply_text(
-        "Send your location for attendance.",
+        "Enter your ETA (example: 10 minutes / 18:45)",
         reply_markup=nav_buttons()
     )
 
 
-# LOCATION HANDLER
+# ETA HANDLER
 
-async def save_live_location(update, context):
+async def save_eta(update, context):
 
-    user_lat = update.message.location.latitude
-    user_lon = update.message.location.longitude
+    eta = update.message.text
 
-    role = context.user_data.get("live_role")
-    cls = context.user_data.get("live_class")
+    role = context.user_data.get("late_role")
+    cls = context.user_data.get("late_class")
 
     conn = get_connection()
     c = conn.cursor()
 
     today = datetime.now().strftime("%Y-%m-%d")
 
+    # BLOCK IF ALREADY PRESENT
     c.execute("""
     SELECT id
     FROM attendance_logs
@@ -179,69 +159,87 @@ async def save_live_location(update, context):
     if c.fetchone():
 
         await update.message.reply_text(
-            "Attendance already submitted today for this class."
+            "You have already submitted attendance for this class today."
         )
 
         conn.close()
         return
 
+
+    # BLOCK DUPLICATE LATE REPORT
     c.execute("""
-    SELECT venue_name, venue_lat, venue_lng
+    SELECT id
+    FROM late_reports
+    WHERE telegram_user_id=? AND class_code=? AND date=?
+    """, (update.effective_user.id, cls, today))
+
+    if c.fetchone():
+
+        await update.message.reply_text(
+            "You have already submitted a late report for this class today."
+        )
+
+        conn.close()
+        return
+
+
+    # GET VENUE
+    c.execute("""
+    SELECT venue_name
     FROM class_codes
     JOIN user_roles ON class_codes.role_id = user_roles.id
     WHERE user_roles.telegram_user_id=? AND user_roles.role_name=? AND class_codes.class_code=?
     """, (update.effective_user.id, role, cls))
 
-    venue = c.fetchone()
+    venue_name = c.fetchone()[0]
 
-    venue_name, venue_lat, venue_lng = venue
 
-    dist = distance_m(user_lat, user_lon, venue_lat, venue_lng)
+    # GET NAME
+    c.execute("""
+    SELECT name
+    FROM users
+    WHERE telegram_user_id=?
+    """, (update.effective_user.id,))
 
-    if dist > ATTENDANCE_RADIUS:
+    name = c.fetchone()[0]
 
-        await update.message.reply_text("You are too far from the venue.")
-        conn.close()
-        return
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
+
+    # SAVE LATE REPORT
     c.execute("""
-    INSERT INTO attendance_logs
-    (telegram_user_id, role_name, class_code, latitude, longitude, date, timestamp)
-    VALUES (?,?,?,?,?,?,?)
+    INSERT INTO late_reports
+    (telegram_user_id, role_name, class_code, eta, date, timestamp)
+    VALUES (?,?,?,?,?,?)
     """, (
         update.effective_user.id,
         role,
         cls,
-        user_lat,
-        user_lon,
+        eta,
         today,
         timestamp
     ))
 
     conn.commit()
-
-    c.execute("""
-    SELECT name FROM users WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
-
-    name = c.fetchone()[0]
-
     conn.close()
 
-    await update.message.reply_text(f"Attendance recorded for {cls}.")
 
-    log_attendance(name, role, cls, venue_name, "Present")
+    await update.message.reply_text("Late report submitted.")
+
+
+    log_attendance(name, role, cls, venue_name, "Late")
+
 
     log_message = f"""
-ATTENDANCE LOG
+LATE REPORT
 
 Name: {name}
 Role: {role}
 Class: {cls}
 Venue: {venue_name}
-Status: Present
+Status: Late
+ETA: {eta}
 Time: {timestamp}
 """
 
@@ -253,5 +251,6 @@ Time: {timestamp}
         text=log_message
     )
 
-    context.user_data.pop("live_role", None)
-    context.user_data.pop("live_class", None)
+
+    context.user_data.pop("late_role", None)
+    context.user_data.pop("late_class", None)

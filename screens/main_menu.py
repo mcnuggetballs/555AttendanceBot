@@ -5,7 +5,9 @@ async def show_menu(update, context):
 
     keyboard = [
         [InlineKeyboardButton("Create Account", callback_data="create_account")],
-        [InlineKeyboardButton("Live Attendance", callback_data="menu_live")]
+        [InlineKeyboardButton("Live Attendance", callback_data="menu_live")],
+        [InlineKeyboardButton("Late Report", callback_data="menu_late")],
+        [InlineKeyboardButton("Status", callback_data="menu_status")]
     ]
 
     markup = InlineKeyboardMarkup(keyboard)

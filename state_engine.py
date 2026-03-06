@@ -1,54 +1,28 @@
-from navigation import push, back, reset
-from screens import main_menu, onboarding, live
+from screens import main_menu, onboarding, live, late
 from database import get_connection
-
-
-SCREEN_MAP = {
-    "menu": main_menu.show_menu,
-    "onboarding_name": onboarding.ask_name,
-    "onboarding_dob": onboarding.ask_dob,
-    "onboarding_role": onboarding.ask_roles,
-    "onboarding_notes": onboarding.ask_notes,
-    "onboarding_config_role": onboarding.ask_config_role,
-    "onboarding_class_code": onboarding.ask_class_code,
-    "onboarding_venue": onboarding.ask_venue_name
-}
-
-
-async def navigate(update, context, screen):
-
-    context.user_data["screen"] = screen
-    push(context, screen)
-
-    func = SCREEN_MAP.get(screen)
-
-    if func:
-        await func(update, context)
 
 
 async def handle_text(update, context):
 
     screen = context.user_data.get("screen")
 
-    next_screen = None
-
     if screen == "onboarding_name":
-        next_screen = await onboarding.save_name(update, context)
+        await onboarding.save_name(update, context)
 
     elif screen == "onboarding_dob":
-        next_screen = await onboarding.save_dob(update, context)
+        await onboarding.save_dob(update, context)
 
     elif screen == "onboarding_notes":
-        next_screen = await onboarding.save_notes(update, context)
+        await onboarding.save_notes(update, context)
 
     elif screen == "onboarding_class_code":
-        next_screen = await onboarding.save_class_code(update, context)
+        await onboarding.save_class_code(update, context)
 
     elif screen == "onboarding_venue":
-        next_screen = await onboarding.save_venue_name(update, context)
+        await onboarding.save_venue_name(update, context)
 
-    if next_screen:
-        await navigate(update, context, next_screen)
+    elif screen == "late_eta":
+        await late.save_eta(update, context)
 
 
 async def handle_location(update, context):
@@ -56,14 +30,9 @@ async def handle_location(update, context):
     screen = context.user_data.get("screen")
 
     if screen == "onboarding_class_code":
+        await onboarding.save_venue_location(update, context)
 
-        next_screen = await onboarding.save_venue_location(update, context)
-
-        if next_screen:
-            await navigate(update, context, next_screen)
-
-    elif context.user_data.get("live_state") == "location":
-
+    elif screen == "live_location":
         await live.save_live_location(update, context)
 
 
@@ -78,43 +47,81 @@ async def handle_callback(update, context):
     # MENU
     if data == "menu":
 
-        context.user_data.clear()
+        context.user_data["screen"] = "menu"
         await main_menu.show_menu(update, context)
         return
 
 
-    # START LIVE
+    # LIVE BUTTON
     if data == "menu_live":
 
+        context.user_data["screen"] = "live_role"
         await live.start_live(update, context)
+        return
+
+
+    # LATE BUTTON
+    if data == "menu_late":
+
+        context.user_data["screen"] = "late_role"
+        await late.start_late(update, context)
+        return
+
+
+    # STATUS BUTTON
+    if data == "menu_status":
+
+        from screens import status
+        await status.show_status(update, context)
         return
 
 
     # BACK BUTTON
     if data == "back":
 
-        state = context.user_data.get("live_state")
+        screen = context.user_data.get("screen")
 
-        if state == "location":
 
-            context.user_data["live_state"] = "class"
+        # LIVE NAVIGATION
+        if screen == "live_location":
+
+            context.user_data["screen"] = "live_class"
             await live.show_class_screen(update, context)
             return
 
-        if state == "class":
+        if screen == "live_class":
 
-            context.user_data["live_state"] = "role"
+            context.user_data["screen"] = "live_role"
             await live.start_live(update, context)
             return
 
-        prev = back(context)
 
-        if prev:
-            func = SCREEN_MAP.get(prev)
-            if func:
-                await func(update, context)
+        # LATE NAVIGATION
+        if screen == "late_eta":
 
-        return
+            context.user_data["screen"] = "late_class"
+            await late.show_class_screen(update, context)
+            return
+
+        if screen == "late_class":
+
+            context.user_data["screen"] = "late_role"
+            await late.start_late(update, context)
+            return
+
+
+        if screen == "late_role":
+
+            context.user_data["screen"] = "menu"
+            await main_menu.show_menu(update, context)
+            return
+
+
+        if screen == "live_role":
+
+            context.user_data["screen"] = "menu"
+            await main_menu.show_menu(update, context)
+            return
 
 
     # CREATE ACCOUNT
@@ -137,61 +144,70 @@ async def handle_callback(update, context):
         if exists:
 
             await query.message.reply_text(
-                "You already have an account.\n\nUse /status to view your classes."
+                "You already have an account.\nUse /status to view your classes."
             )
 
             return
 
-        reset(context)
-        await navigate(update, context, "onboarding_name")
+        context.user_data["screen"] = "onboarding_name"
+        await onboarding.ask_name(update, context)
         return
 
 
-    # ROLE TOGGLE
+    # ONBOARDING ROLE BUTTONS
     if data.startswith("role_toggle"):
-
         await onboarding.toggle_role(update, context)
         return
 
 
     if data == "role_done":
 
-        await navigate(update, context, "onboarding_notes")
+        context.user_data["screen"] = "onboarding_notes"
+        await onboarding.ask_notes(update, context)
         return
 
 
     if data == "add_class_yes":
 
-        await navigate(update, context, "onboarding_class_code")
+        context.user_data["screen"] = "onboarding_class_code"
+        await onboarding.ask_class_code(update, context)
         return
 
 
     if data == "add_class_no":
 
-        context.user_data["role_index"] += 1
-
-        if context.user_data["role_index"] < len(context.user_data["roles"]):
-
-            await navigate(update, context, "onboarding_config_role")
-
-        else:
-
-            next_screen = await onboarding.finish_onboarding(update, context)
-
-            await navigate(update, context, next_screen)
-
+        next_screen = await onboarding.finish_onboarding(update, context)
+        context.user_data["screen"] = next_screen
         return
 
 
-    # LIVE ROLE SELECT
+    # LIVE ROLE
     if data.startswith("live_role|"):
 
+        context.user_data["screen"] = "live_class"
         await live.select_class(update, context)
         return
 
 
-    # LIVE CLASS SELECT
+    # LIVE CLASS
     if data.startswith("live_class|"):
 
+        context.user_data["screen"] = "live_location"
         await live.request_location(update, context)
+        return
+
+
+    # LATE ROLE
+    if data.startswith("late_role|"):
+
+        context.user_data["screen"] = "late_class"
+        await late.select_class(update, context)
+        return
+
+
+    # LATE CLASS
+    if data.startswith("late_class|"):
+
+        context.user_data["screen"] = "late_eta"
+        await late.request_eta(update, context)
         return
