@@ -244,10 +244,16 @@ async def finish_onboarding(update, context):
 
     user_id = update.effective_user.id
 
+    # FIX: preserve verified flag instead of replacing row
     c.execute("""
-    INSERT OR REPLACE INTO users
-    (telegram_user_id, name, dob, notes)
-    VALUES (?,?,?,?)
+    INSERT INTO users
+    (telegram_user_id, name, dob, notes, verified)
+    VALUES (?,?,?,?,1)
+    ON CONFLICT(telegram_user_id)
+    DO UPDATE SET
+        name=excluded.name,
+        dob=excluded.dob,
+        notes=excluded.notes
     """, (
         user_id,
         context.user_data["name"],

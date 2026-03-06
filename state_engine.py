@@ -1,5 +1,6 @@
 from screens import main_menu, onboarding, live, late, status
 from database import get_connection
+from admin_commands import today, who, who_class
 
 
 def log(msg):
@@ -116,6 +117,19 @@ async def handle_callback(update, context):
         await main_menu.show_menu(update, context)
         return
 
+    if data == "menu_today":
+        await today(update, context)
+        return
+
+    if data == "menu_who":
+        await who(update, context)
+        return
+
+    if data.startswith("who_class|"):
+        await who_class(update, context)
+        return
+
+
     if data == "create_account":
 
         user_id = update.effective_user.id
@@ -173,6 +187,7 @@ async def handle_callback(update, context):
             await main_menu.show_menu(update, context)
 
         return
+
 
     if data == "back":
 
@@ -238,6 +253,7 @@ async def handle_callback(update, context):
             await late.start_late(update, context)
             return
 
+
     if data == "menu_live":
         context.user_data["screen"] = "live_role"
         await live.start_live(update, context)
@@ -253,7 +269,8 @@ async def handle_callback(update, context):
     if data == "menu_status":
         await status.show_status(update, context)
         return
-    
+
+
     if data.startswith("live_role|"):
         context.user_data["screen"] = "live_class"
         await live.select_class(update, context)

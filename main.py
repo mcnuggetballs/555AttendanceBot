@@ -10,6 +10,7 @@ from database import init_db, get_connection
 from state_engine import handle_text, handle_callback, handle_location
 from screens import main_menu
 
+
 BOT_TOKEN = "8495877260:AAEKSGfSn9_imFhEFTdSdNtit_XY18OGoDA"
 BOT_PASSWORD = "wearerising555!"
 
@@ -41,6 +42,17 @@ async def start(update, context):
     context.user_data["screen"] = "password"
 
     await update.message.reply_text("Enter access password:")
+
+
+async def menu(update, context):
+
+    if not context.user_data.get("verified"):
+        await update.message.reply_text("Use /start to begin.")
+        return
+
+    context.user_data["screen"] = "menu"
+
+    await main_menu.show_menu(update, context)
 
 
 async def text_router(update, context):
@@ -92,13 +104,14 @@ def main():
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # START COMMAND
+    # COMMANDS
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("menu", menu))
 
     # BUTTON CALLBACKS
     app.add_handler(CallbackQueryHandler(handle_callback))
 
-    # LOCATION MESSAGES
+    # LOCATION
     app.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
     # TEXT INPUT
