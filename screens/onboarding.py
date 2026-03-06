@@ -106,7 +106,12 @@ async def ask_notes(update, context):
         ]
     ]
 
-    await show_screen(update, context, "Any notes? (type skip)", keyboard)
+    await show_screen(
+        update,
+        context,
+        "Any notes?\nType \"skip\" if none.",
+        keyboard
+    )
 
 
 async def save_notes(update, context):
@@ -143,7 +148,7 @@ async def ask_config_role(update, context):
     await show_screen(
         update,
         context,
-        f"Configure class codes for role:\n{role}\n\nEnter class code:",
+        f"Configure class codes\n\nCurrently registering for: {role}\n\nEnter class code:",
         keyboard
     )
 
@@ -175,7 +180,12 @@ async def save_class_code(update, context):
         ]
     ]
 
-    await show_screen(update, context, "Send venue location.", keyboard)
+    await show_screen(
+        update,
+        context,
+        "Send venue location.\n(Use Telegram's Send Location feature)\n\nDo NOT type the venue name here.",
+        keyboard
+    )
 
     return "onboarding_location"
 
@@ -202,7 +212,12 @@ async def ask_venue_name(update, context):
         ]
     ]
 
-    await show_screen(update, context, "Enter venue name:", keyboard)
+    await show_screen(
+        update,
+        context,
+        "Enter Venue Address Name\n(example: NUS Dance Studio / RP Room W2-12)",
+        keyboard
+    )
 
 
 async def save_venue_name(update, context):
@@ -307,7 +322,6 @@ async def finish_onboarding(update, context):
     conn.commit()
     conn.close()
 
-    # ---- PRESERVE IMPORTANT STATE ----
     verified = context.user_data.get("verified")
     ui_message_id = context.user_data.get("ui_message_id")
 
@@ -316,7 +330,6 @@ async def finish_onboarding(update, context):
     context.user_data["verified"] = verified
     context.user_data["ui_message_id"] = ui_message_id
     context.user_data["screen"] = "menu"
-    # ----------------------------------
 
     keyboard = [
         [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
