@@ -210,10 +210,20 @@ async def save_live_location(update, context):
 
     topic_id = ROLE_TOPICS.get(role)
 
+    log_message = (
+        "ATTENDANCE LOG\n\n"
+        f"Name: {name}\n"
+        f"Role: {role}\n"
+        f"Class: {cls}\n"
+        f"Venue: {venue_name}\n"
+        "Status: Present\n"
+        f"Time: {timestamp}"
+    )
+
     await context.bot.send_message(
         chat_id=ADMIN_GROUP_ID,
         message_thread_id=topic_id,
-        text=f"{name} — {cls} — Present"
+        text=log_message
     )
 
     context.user_data.pop("live_role", None)

@@ -4,11 +4,12 @@ from ui import show_screen
 import sqlite3
 
 
-async def today(update, context: ContextTypes.DEFAULT_TYPE):
+async def today(update, context):
 
     conn = sqlite3.connect("attendance.db")
     c = conn.cursor()
 
+    # Present
     c.execute("""
     SELECT users.name, attendance_logs.role_name, attendance_logs.class_code
     FROM attendance_logs
@@ -19,6 +20,7 @@ async def today(update, context: ContextTypes.DEFAULT_TYPE):
 
     present = c.fetchall()
 
+    # Late
     c.execute("""
     SELECT users.name, late_reports.role_name, late_reports.class_code
     FROM late_reports
@@ -31,22 +33,25 @@ async def today(update, context: ContextTypes.DEFAULT_TYPE):
 
     conn.close()
 
-    rows = present + late
+    if not present and not late:
 
-    if not rows:
+        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
         await show_screen(
             update,
             context,
             "No attendance recorded today.",
-            [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+            keyboard
         )
         return
 
-    message = "TODAY'S ATTENDANCE\n\n"
+    message = "📋 TODAY'S ATTENDANCE\n\n"
 
-    for name, role, cls in rows:
-        message += f"{name} — {role} — {cls}\n"
+    for name, role, cls in present:
+        message += f"{name} — {role} — {cls} — ✅ Present\n"
+
+    for name, role, cls in late:
+        message += f"{name} — {role} — {cls} — ⏰ Late\n"
 
     keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
