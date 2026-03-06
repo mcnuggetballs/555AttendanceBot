@@ -77,10 +77,22 @@ async def select_class(update, context):
     await show_screen(update, context, "Select class:", keyboard)
 
 
+async def ask_student_name(update, context):
+
+    keyboard = [
+        [InlineKeyboardButton("⬅ Back", callback_data="menu_late")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
+
+    await show_screen(update, context, "Enter student name:", keyboard)
+
+
 async def request_eta(update, context):
 
-    cls = update.callback_query.data.split("|")[1]
-    context.user_data["late_class"] = cls
+    if update.callback_query:
+        cls = update.callback_query.data.split("|")[1]
+        context.user_data["late_class"] = cls
+
     context.user_data["screen"] = "late_eta"
 
     keyboard = [
@@ -97,6 +109,8 @@ async def save_eta(update, context):
 
     role = context.user_data.get("late_role")
     cls = context.user_data.get("late_class")
+
+    student = context.user_data.get("student_name")
 
     conn = get_connection()
     c = conn.cursor()
@@ -176,12 +190,13 @@ async def save_eta(update, context):
     # SAVE LATE REPORT
     c.execute("""
     INSERT INTO late_reports
-    (telegram_user_id, role_name, class_code, eta, date, timestamp)
-    VALUES (?,?,?,?,?,?)
+    (telegram_user_id, role_name, class_code, student_name, eta, date, timestamp)
+    VALUES (?,?,?,?,?,?,?)
     """, (
         update.effective_user.id,
         role,
         cls,
+        student,
         eta,
         today,
         timestamp
@@ -201,18 +216,21 @@ async def save_eta(update, context):
     )
 
 
-    # GOOGLE SHEETS LOG
-    log_attendance(name, role, cls, venue_name, "Late")
+    log_attendance(name, role, cls, student, venue_name, "Late")
 
 
-    # SERVER LOG
     log_message = f"""
 LATE REPORT
 
 Name: {name}
 Role: {role}
 Class: {cls}
-Venue: {venue_name}
+"""
+
+    if student:
+        log_message += f"Student: {student}\n"
+
+    log_message += f"""Venue: {venue_name}
 Status: Late
 ETA: {eta}
 Time: {timestamp}
@@ -229,3 +247,4 @@ Time: {timestamp}
 
     context.user_data.pop("late_role", None)
     context.user_data.pop("late_class", None)
+    context.user_data.pop("student_name", None)

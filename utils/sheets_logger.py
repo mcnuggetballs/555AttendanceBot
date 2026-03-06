@@ -2,15 +2,12 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 
-
 SHEET_NAME = "Attendance Logs"
-
 
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
-
 
 creds = ServiceAccountCredentials.from_json_keyfile_name(
     "service_account.json",
@@ -22,7 +19,7 @@ client = gspread.authorize(creds)
 sheet = client.open(SHEET_NAME).sheet1
 
 
-def log_attendance(name, role, cls, venue, status):
+def log_attendance(name, role, cls, student, venue, status):
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -31,6 +28,7 @@ def log_attendance(name, role, cls, venue, status):
         name,
         role,
         cls,
+        student,
         venue,
         status
     ]

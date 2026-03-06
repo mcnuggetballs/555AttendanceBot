@@ -101,12 +101,22 @@ async def select_class(update, context):
     await show_screen(update, context, "Select class:", keyboard)
 
 
+async def ask_student_name(update, context):
+
+    keyboard = [
+        [InlineKeyboardButton("⬅ Back", callback_data="menu_live")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
+
+    await show_screen(update, context, "Enter student name:", keyboard)
+
+
 async def request_location(update, context):
 
-    query = update.callback_query
-    cls = query.data.split("|")[1]
-
-    context.user_data["live_class"] = cls
+    if update.callback_query:
+        query = update.callback_query
+        cls = query.data.split("|")[1]
+        context.user_data["live_class"] = cls
 
     keyboard = [
         [InlineKeyboardButton("⬅ Back", callback_data="menu_live")],
@@ -123,6 +133,8 @@ async def save_live_location(update, context):
 
     role = context.user_data.get("live_role")
     cls = context.user_data.get("live_class")
+
+    student = context.user_data.get("student_name")
 
     conn = get_connection()
     c = conn.cursor()
@@ -178,12 +190,13 @@ async def save_live_location(update, context):
 
     c.execute("""
     INSERT INTO attendance_logs
-    (telegram_user_id, role_name, class_code, latitude, longitude, date, timestamp)
-    VALUES (?,?,?,?,?,?,?)
+    (telegram_user_id, role_name, class_code, student_name, latitude, longitude, date, timestamp)
+    VALUES (?,?,?,?,?,?,?,?)
     """, (
         update.effective_user.id,
         role,
         cls,
+        student,
         user_lat,
         user_lon,
         today,
@@ -206,7 +219,7 @@ async def save_live_location(update, context):
         keyboard
     )
 
-    log_attendance(name, role, cls, venue_name, "Present")
+    log_attendance(name, role, cls, student, venue_name, "Present")
 
     topic_id = ROLE_TOPICS.get(role)
 
@@ -215,6 +228,12 @@ async def save_live_location(update, context):
         f"Name: {name}\n"
         f"Role: {role}\n"
         f"Class: {cls}\n"
+    )
+
+    if student:
+        log_message += f"Student: {student}\n"
+
+    log_message += (
         f"Venue: {venue_name}\n"
         "Status: Present\n"
         f"Time: {timestamp}"
@@ -228,3 +247,4 @@ async def save_live_location(update, context):
 
     context.user_data.pop("live_role", None)
     context.user_data.pop("live_class", None)
+    context.user_data.pop("student_name", None)

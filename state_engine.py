@@ -15,13 +15,25 @@ async def handle_text(update, context):
         log("User not verified")
         return
 
-    # delete user message to keep UI clean
     try:
         await update.message.delete()
     except:
         pass
 
     screen = context.user_data.get("screen")
+
+    # STUDENT NAME INPUT
+    if screen == "live_student_name":
+        context.user_data["student_name"] = update.message.text
+        context.user_data["screen"] = "live_location"
+        await live.request_location(update, context)
+        return
+
+    if screen == "late_student_name":
+        context.user_data["student_name"] = update.message.text
+        context.user_data["screen"] = "late_eta"
+        await late.request_eta(update, context)
+        return
 
     button_only_screens = [
         "onboarding_role",
@@ -97,7 +109,6 @@ async def handle_location(update, context):
     if not context.user_data.get("verified"):
         return
 
-    # delete user location message
     try:
         await update.message.delete()
     except:
@@ -285,6 +296,18 @@ async def handle_callback(update, context):
 
 
     if data.startswith("live_class|"):
+
+        role = context.user_data.get("live_role")
+
+        if role == "Private Instructor":
+            context.user_data["screen"] = "live_student_name"
+
+            cls = data.split("|")[1]
+            context.user_data["live_class"] = cls
+
+            await live.ask_student_name(update, context)
+            return
+
         context.user_data["screen"] = "live_location"
         await live.request_location(update, context)
         return
@@ -297,6 +320,18 @@ async def handle_callback(update, context):
 
 
     if data.startswith("late_class|"):
+
+        role = context.user_data.get("late_role")
+
+        if role == "Private Instructor":
+            context.user_data["screen"] = "late_student_name"
+
+            cls = data.split("|")[1]
+            context.user_data["late_class"] = cls
+
+            await late.ask_student_name(update, context)
+            return
+
         context.user_data["screen"] = "late_eta"
         await late.request_eta(update, context)
         return
