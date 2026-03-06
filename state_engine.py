@@ -15,9 +15,14 @@ async def handle_text(update, context):
         log("User not verified")
         return
 
+    # delete user message to keep UI clean
+    try:
+        await update.message.delete()
+    except:
+        pass
+
     screen = context.user_data.get("screen")
 
-    # ---------- SCREENS THAT SHOULD IGNORE TEXT ----------
     button_only_screens = [
         "onboarding_role",
         "onboarding_add_class",
@@ -29,19 +34,7 @@ async def handle_text(update, context):
     ]
 
     if screen in button_only_screens:
-        try:
-            await update.message.delete()
-        except:
-            pass
         return
-    # -----------------------------------------------------
-
-    # ---------- DELETE USER MESSAGE ----------
-    try:
-        await update.message.delete()
-    except:
-        pass
-    # -----------------------------------------
 
     log(f"Current screen: {screen}")
 
@@ -67,10 +60,7 @@ async def handle_text(update, context):
         return
 
     else:
-        log("No handler for this text screen")
         return
-
-    log(f"Next screen returned: {next_screen}")
 
     if not next_screen:
         return
@@ -96,6 +86,7 @@ async def handle_text(update, context):
         await onboarding.ask_venue_name(update, context)
 
     elif next_screen == "menu":
+        context.user_data["screen"] = "menu"
         await main_menu.show_menu(update, context)
 
 
@@ -106,22 +97,22 @@ async def handle_location(update, context):
     if not context.user_data.get("verified"):
         return
 
-    # ---------- DELETE USER LOCATION MESSAGE ----------
+    # delete user location message
     try:
         await update.message.delete()
     except:
         pass
-    # --------------------------------------------------
 
     screen = context.user_data.get("screen")
-
-    log(f"Current screen: {screen}")
 
     if screen == "onboarding_location":
 
         next_screen = await onboarding.save_venue_location(update, context)
-
         context.user_data["screen"] = next_screen
+
+        if next_screen == "onboarding_venue":
+            await onboarding.ask_venue_name(update, context)
+
         return
 
     if screen == "live_location":
@@ -141,9 +132,6 @@ async def handle_callback(update, context):
     await query.answer()
 
     screen = context.user_data.get("screen")
-
-    log(f"Button pressed: {data}")
-    log(f"Current screen: {screen}")
 
     if data == "menu":
         context.user_data["screen"] = "menu"
@@ -180,9 +168,6 @@ async def handle_callback(update, context):
         conn.close()
 
         if row and row[0] is not None:
-            await query.message.reply_text(
-                "You already have an account."
-            )
             return
 
         context.user_data["screen"] = "onboarding_name"
@@ -217,16 +202,13 @@ async def handle_callback(update, context):
             await onboarding.ask_config_role(update, context)
 
         elif next_screen == "menu":
+            context.user_data["screen"] = "menu"
             await main_menu.show_menu(update, context)
 
         return
 
 
     if data == "back":
-
-        log("Back button triggered")
-
-        # ---------- ONBOARDING BACK ----------
 
         if screen == "onboarding_dob":
             context.user_data["screen"] = "onboarding_name"
@@ -258,9 +240,6 @@ async def handle_callback(update, context):
             await onboarding.ask_class_code(update, context)
             return
 
-
-        # ---------- LIVE BACK ----------
-
         if screen == "live_location":
             context.user_data["screen"] = "live_class"
             await live.start_live(update, context)
@@ -270,9 +249,6 @@ async def handle_callback(update, context):
             context.user_data["screen"] = "live_role"
             await live.start_live(update, context)
             return
-
-
-        # ---------- LATE BACK ----------
 
         if screen == "late_eta":
             context.user_data["screen"] = "late_class"

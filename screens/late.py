@@ -108,7 +108,14 @@ async def save_eta(update, context):
     conn.commit()
     conn.close()
 
-    await update.message.reply_text("Late report submitted.")
+    keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+    await show_screen(
+        update,
+        context,
+        "✅ Late report submitted.",
+        keyboard
+    )
 
     context.user_data.pop("late_role", None)
     context.user_data.pop("late_class", None)

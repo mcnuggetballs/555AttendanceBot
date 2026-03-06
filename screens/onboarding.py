@@ -18,9 +18,7 @@ async def ask_name(update, context):
     context.user_data["screen"] = "onboarding_name"
 
     keyboard = [
-        [
-            InlineKeyboardButton("🏠 Menu", callback_data="menu")
-        ]
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
     ]
 
     await show_screen(update, context, "Enter your name:", keyboard)
@@ -29,7 +27,6 @@ async def ask_name(update, context):
 async def save_name(update, context):
 
     context.user_data["name"] = update.message.text
-
     return "onboarding_dob"
 
 
@@ -61,10 +58,7 @@ def build_role_keyboard(selected):
 
     for role in ROLES:
 
-        if role in selected:
-            text = f"✅ {role}"
-        else:
-            text = f"⬜ {role}"
+        text = f"✅ {role}" if role in selected else f"⬜ {role}"
 
         keyboard.append([
             InlineKeyboardButton(text, callback_data=f"role_toggle|{role}")
@@ -193,15 +187,7 @@ async def save_venue_location(update, context):
     context.user_data["venue_lat"] = location.latitude
     context.user_data["venue_lng"] = location.longitude
 
-    keyboard = [
-        [
-            InlineKeyboardButton("⬅ Back", callback_data="back"),
-            InlineKeyboardButton("🏠 Menu", callback_data="menu")
-        ]
-    ]
-
-    await show_screen(update, context, "Enter venue name:", keyboard)
-
+    # IMPORTANT: do NOT show UI here anymore
     return "onboarding_venue"
 
 
@@ -242,7 +228,6 @@ async def save_venue_name(update, context):
         ]
     ]
 
-    # IMPORTANT: change screen state
     context.user_data["screen"] = "onboarding_add_class"
 
     await show_screen(
@@ -322,9 +307,26 @@ async def finish_onboarding(update, context):
     conn.commit()
     conn.close()
 
+    # ---- PRESERVE IMPORTANT STATE ----
     verified = context.user_data.get("verified")
+    ui_message_id = context.user_data.get("ui_message_id")
 
     context.user_data.clear()
-    context.user_data["verified"] = verified
 
-    return "menu"
+    context.user_data["verified"] = verified
+    context.user_data["ui_message_id"] = ui_message_id
+    context.user_data["screen"] = "menu"
+    # ----------------------------------
+
+    keyboard = [
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
+
+    await show_screen(
+        update,
+        context,
+        "✅ Account setup complete.",
+        keyboard
+    )
+
+    return None

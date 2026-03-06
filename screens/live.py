@@ -137,8 +137,13 @@ async def save_live_location(update, context):
 
     if c.fetchone():
 
-        await update.message.reply_text(
-            "Attendance already submitted today for this class."
+        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+        await show_screen(
+            update,
+            context,
+            "⚠ Attendance already submitted today for this class.",
+            keyboard
         )
 
         conn.close()
@@ -157,7 +162,15 @@ async def save_live_location(update, context):
 
     if dist > ATTENDANCE_RADIUS:
 
-        await update.message.reply_text("You are too far from the venue.")
+        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+        await show_screen(
+            update,
+            context,
+            "⚠ You are too far from the venue.",
+            keyboard
+        )
+
         conn.close()
         return
 
@@ -184,7 +197,14 @@ async def save_live_location(update, context):
 
     conn.close()
 
-    await update.message.reply_text(f"Attendance recorded for {cls}.")
+    keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+    await show_screen(
+        update,
+        context,
+        f"✅ Attendance recorded for {cls}.",
+        keyboard
+    )
 
     log_attendance(name, role, cls, venue_name, "Present")
 
