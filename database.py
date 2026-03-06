@@ -17,7 +17,8 @@ def init_db():
         telegram_user_id INTEGER PRIMARY KEY,
         name TEXT,
         dob TEXT,
-        notes TEXT
+        notes TEXT,
+        verified INTEGER DEFAULT 0
     )
     """)
 

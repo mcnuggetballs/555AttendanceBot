@@ -128,6 +128,7 @@ async def request_eta(update, context):
     cls = query.data.split("|")[1]
 
     context.user_data["late_class"] = cls
+    context.user_data["screen"] = "late_eta"
 
     await query.message.reply_text(
         "Enter your ETA (example: 10 minutes / 18:45)",
@@ -183,7 +184,7 @@ async def save_eta(update, context):
         return
 
 
-    # GET VENUE
+    # GET VENUE (SAFE)
     c.execute("""
     SELECT venue_name
     FROM class_codes
@@ -191,17 +192,27 @@ async def save_eta(update, context):
     WHERE user_roles.telegram_user_id=? AND user_roles.role_name=? AND class_codes.class_code=?
     """, (update.effective_user.id, role, cls))
 
-    venue_name = c.fetchone()[0]
+    venue_row = c.fetchone()
+
+    if not venue_row:
+        venue_name = "Unknown Venue"
+    else:
+        venue_name = venue_row[0]
 
 
-    # GET NAME
+    # GET NAME (SAFE)
     c.execute("""
     SELECT name
     FROM users
     WHERE telegram_user_id=?
     """, (update.effective_user.id,))
 
-    name = c.fetchone()[0]
+    name_row = c.fetchone()
+
+    if not name_row:
+        name = "Unknown"
+    else:
+        name = name_row[0]
 
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")

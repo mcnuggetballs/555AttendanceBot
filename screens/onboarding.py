@@ -141,7 +141,6 @@ async def ask_config_role(update, context):
         f"Configure class codes for role:\n{role}"
     )
 
-    # immediately move to class code entry
     context.user_data["screen"] = "onboarding_class_code"
 
     await msg.reply_text(
@@ -161,11 +160,15 @@ async def ask_class_code(update, context):
 
 async def save_class_code(update, context):
 
-    context.user_data["current_class"] = update.message.text.upper()
+    class_code = update.message.text.strip()
 
-    await update.message.reply_text("Send venue location.", reply_markup=nav())
+    context.user_data["current_class"] = class_code
 
-    return None
+    await update.message.reply_text(
+        "Send venue location."
+    )
+
+    return "onboarding_location"
 
 
 async def save_venue_location(update, context):
@@ -174,6 +177,10 @@ async def save_venue_location(update, context):
 
     context.user_data["venue_lat"] = location.latitude
     context.user_data["venue_lng"] = location.longitude
+
+    await update.message.reply_text(
+        "Enter venue name:"
+    )
 
     return "onboarding_venue"
 
@@ -216,6 +223,18 @@ async def save_venue_name(update, context):
     )
 
     return None
+
+
+async def next_role(update, context):
+
+    context.user_data["role_index"] += 1
+
+    roles = context.user_data["roles"]
+
+    if context.user_data["role_index"] >= len(roles):
+        return await finish_onboarding(update, context)
+
+    return "onboarding_config_role"
 
 
 async def finish_onboarding(update, context):
@@ -270,6 +289,10 @@ async def finish_onboarding(update, context):
 
     await get_msg(update).reply_text("Account setup complete.")
 
+    verified = context.user_data.get("verified")
+
     context.user_data.clear()
+
+    context.user_data["verified"] = verified
 
     return "menu"
