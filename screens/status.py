@@ -1,10 +1,6 @@
 from database import get_connection
-
-
-def get_msg(update):
-    if update.message:
-        return update.message
-    return update.callback_query.message
+from ui import show_screen
+from telegram import InlineKeyboardButton
 
 
 async def show_status(update, context):
@@ -24,8 +20,11 @@ async def show_status(update, context):
 
     if not user:
 
-        await get_msg(update).reply_text(
-            "You do not have an account yet.\n\nUse Create Account from the menu."
+        await show_screen(
+            update,
+            context,
+            "You do not have an account yet.\n\nUse Create Account from the menu.",
+            [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
         )
 
         conn.close()
@@ -60,4 +59,6 @@ async def show_status(update, context):
 
     conn.close()
 
-    await get_msg(update).reply_text(text)
+    keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+    await show_screen(update, context, text, keyboard)

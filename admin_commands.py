@@ -1,58 +1,59 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton
 from telegram.ext import ContextTypes
+from ui import show_screen
 import sqlite3
 
 
-def get_msg(update):
-    if update.message:
-        return update.message
-    return update.callback_query.message
-
-
-async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def today(update, context: ContextTypes.DEFAULT_TYPE):
 
     conn = sqlite3.connect("attendance.db")
     c = conn.cursor()
 
-    # PRESENT
     c.execute("""
-    SELECT users.name, attendance_logs.role_name, attendance_logs.class_code, 'Present'
+    SELECT users.name, attendance_logs.role_name, attendance_logs.class_code
     FROM attendance_logs
     JOIN users
     ON attendance_logs.telegram_user_id = users.telegram_user_id
     WHERE date = date('now')
     """)
 
-    present_rows = c.fetchall()
+    present = c.fetchall()
 
-    # LATE
     c.execute("""
-    SELECT users.name, late_reports.role_name, late_reports.class_code, 'Late'
+    SELECT users.name, late_reports.role_name, late_reports.class_code
     FROM late_reports
     JOIN users
     ON late_reports.telegram_user_id = users.telegram_user_id
     WHERE date = date('now')
     """)
 
-    late_rows = c.fetchall()
+    late = c.fetchall()
 
     conn.close()
 
-    rows = present_rows + late_rows
+    rows = present + late
 
     if not rows:
-        await get_msg(update).reply_text("No attendance recorded today.")
+
+        await show_screen(
+            update,
+            context,
+            "No attendance recorded today.",
+            [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+        )
         return
 
     message = "TODAY'S ATTENDANCE\n\n"
 
-    for name, role, cls, status in rows:
-        message += f"{name} — {role} — {cls} — {status}\n"
+    for name, role, cls in rows:
+        message += f"{name} — {role} — {cls}\n"
 
-    await get_msg(update).reply_text(message)
+    keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+    await show_screen(update, context, message, keyboard)
 
 
-async def who(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def who(update, context):
 
     conn = sqlite3.connect("attendance.db")
     c = conn.cursor()
@@ -64,30 +65,20 @@ async def who(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """)
 
     classes = [row[0] for row in c.fetchall()]
-    conn.close()
 
-    if not classes:
-        await get_msg(update).reply_text("No classes configured yet.")
-        return
+    conn.close()
 
     keyboard = []
 
     for cls in classes:
-        keyboard.append([
-            InlineKeyboardButton(cls, callback_data=f"who_class|{cls}")
-        ])
+        keyboard.append([InlineKeyboardButton(cls, callback_data=f"who_class|{cls}")])
 
-    keyboard.append([
-        InlineKeyboardButton("🏠 Menu", callback_data="menu")
-    ])
+    keyboard.append([InlineKeyboardButton("🏠 Menu", callback_data="menu")])
 
-    await get_msg(update).reply_text(
-        "Select class:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await show_screen(update, context, "Select class:", keyboard)
 
 
-async def who_class(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def who_class(update, context):
 
     query = update.callback_query
     cls = query.data.split("|")[1]
@@ -95,41 +86,49 @@ async def who_class(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn = sqlite3.connect("attendance.db")
     c = conn.cursor()
 
-    # PRESENT
     c.execute("""
-    SELECT users.name, 'Present'
+    SELECT users.name
     FROM attendance_logs
     JOIN users
     ON attendance_logs.telegram_user_id = users.telegram_user_id
     WHERE class_code=? AND date = date('now')
     """, (cls,))
 
-    present_rows = c.fetchall()
+    present = c.fetchall()
 
-    # LATE
     c.execute("""
-    SELECT users.name, 'Late'
+    SELECT users.name
     FROM late_reports
     JOIN users
     ON late_reports.telegram_user_id = users.telegram_user_id
     WHERE class_code=? AND date = date('now')
     """, (cls,))
 
-    late_rows = c.fetchall()
+    late = c.fetchall()
 
     conn.close()
 
-    rows = present_rows + late_rows
+    if not present and not late:
 
-    if not rows:
-        await query.message.reply_text(
-            f"No attendance recorded for {cls} today."
+        await show_screen(
+            update,
+            context,
+            f"No attendance recorded for {cls} today.",
+            [[InlineKeyboardButton("⬅ Back", callback_data="menu_who")]]
         )
         return
 
-    message = f"ATTENDANCE FOR {cls}\n\n"
+    text = f"ATTENDANCE FOR {cls}\n\n"
 
-    for name, status in rows:
-        message += f"{name} — {status}\n"
+    for (name,) in present:
+        text += f"{name} — Present\n"
 
-    await query.message.reply_text(message)
+    for (name,) in late:
+        text += f"{name} — Late\n"
+
+    keyboard = [
+        [InlineKeyboardButton("⬅ Back", callback_data="menu_who")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
+
+    await show_screen(update, context, text, keyboard)

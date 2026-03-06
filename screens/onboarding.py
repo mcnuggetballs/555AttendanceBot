@@ -1,5 +1,6 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton
 from database import get_connection
+from ui import show_screen
 
 
 ROLES = [
@@ -12,27 +13,17 @@ ROLES = [
 ]
 
 
-def get_msg(update):
-    if update.message:
-        return update.message
-    return update.callback_query.message
-
-
-def nav():
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("⬅ Back", callback_data="back"),
-            InlineKeyboardButton("🏠 Menu", callback_data="menu")
-        ]
-    ])
-
-
 async def ask_name(update, context):
 
-    msg = get_msg(update)
     context.user_data["screen"] = "onboarding_name"
 
-    await msg.reply_text("Enter your name:", reply_markup=nav())
+    keyboard = [
+        [
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, "Enter your name:", keyboard)
 
 
 async def save_name(update, context):
@@ -44,10 +35,16 @@ async def save_name(update, context):
 
 async def ask_dob(update, context):
 
-    msg = get_msg(update)
     context.user_data["screen"] = "onboarding_dob"
 
-    await msg.reply_text("Enter DOB (DDMMYYYY):", reply_markup=nav())
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, "Enter DOB (DDMMYYYY):", keyboard)
 
 
 async def save_dob(update, context):
@@ -75,17 +72,16 @@ def build_role_keyboard(selected):
 
     keyboard.append([InlineKeyboardButton("Done", callback_data="role_done")])
 
-    return InlineKeyboardMarkup(keyboard)
+    return keyboard
 
 
 async def ask_roles(update, context):
 
-    msg = get_msg(update)
     context.user_data["screen"] = "onboarding_role"
 
     keyboard = build_role_keyboard(context.user_data["roles"])
 
-    await msg.reply_text("Select your roles:", reply_markup=keyboard)
+    await show_screen(update, context, "Select your roles:", keyboard)
 
 
 async def toggle_role(update, context):
@@ -102,15 +98,21 @@ async def toggle_role(update, context):
 
     keyboard = build_role_keyboard(roles)
 
-    await query.message.edit_reply_markup(reply_markup=keyboard)
+    await show_screen(update, context, "Select your roles:", keyboard)
 
 
 async def ask_notes(update, context):
 
-    msg = get_msg(update)
     context.user_data["screen"] = "onboarding_notes"
 
-    await msg.reply_text("Any notes? (type skip)", reply_markup=nav())
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, "Any notes? (type skip)", keyboard)
 
 
 async def save_notes(update, context):
@@ -130,32 +132,40 @@ async def save_notes(update, context):
 
 async def ask_config_role(update, context):
 
-    msg = get_msg(update)
-
     roles = context.user_data["roles"]
     index = context.user_data["role_index"]
 
     role = roles[index]
 
-    await msg.reply_text(
-        f"Configure class codes for role:\n{role}"
-    )
-
     context.user_data["screen"] = "onboarding_class_code"
 
-    await msg.reply_text(
-        "Enter class code:",
-        reply_markup=nav()
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(
+        update,
+        context,
+        f"Configure class codes for role:\n{role}\n\nEnter class code:",
+        keyboard
     )
 
 
 async def ask_class_code(update, context):
 
-    msg = get_msg(update)
-
     context.user_data["screen"] = "onboarding_class_code"
 
-    await msg.reply_text("Enter class code:", reply_markup=nav())
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, "Enter class code:", keyboard)
 
 
 async def save_class_code(update, context):
@@ -164,9 +174,14 @@ async def save_class_code(update, context):
 
     context.user_data["current_class"] = class_code
 
-    await update.message.reply_text(
-        "Send venue location."
-    )
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, "Send venue location.", keyboard)
 
     return "onboarding_location"
 
@@ -178,20 +193,30 @@ async def save_venue_location(update, context):
     context.user_data["venue_lat"] = location.latitude
     context.user_data["venue_lng"] = location.longitude
 
-    await update.message.reply_text(
-        "Enter venue name:"
-    )
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, "Enter venue name:", keyboard)
 
     return "onboarding_venue"
 
 
 async def ask_venue_name(update, context):
 
-    msg = get_msg(update)
-
     context.user_data["screen"] = "onboarding_venue"
 
-    await msg.reply_text("Enter venue name:", reply_markup=nav())
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, "Enter venue name:", keyboard)
 
 
 async def save_venue_name(update, context):
@@ -210,16 +235,18 @@ async def save_venue_name(update, context):
 
     context.user_data["role_classes"].setdefault(role, []).append(class_data)
 
-    keyboard = InlineKeyboardMarkup([
+    keyboard = [
         [
             InlineKeyboardButton("Yes", callback_data="add_class_yes"),
             InlineKeyboardButton("No", callback_data="add_class_no")
         ]
-    ])
+    ]
 
-    await update.message.reply_text(
+    await show_screen(
+        update,
+        context,
         f"Add another class code for {role}?",
-        reply_markup=keyboard
+        keyboard
     )
 
     return None
@@ -244,7 +271,6 @@ async def finish_onboarding(update, context):
 
     user_id = update.effective_user.id
 
-    # FIX: preserve verified flag instead of replacing row
     c.execute("""
     INSERT INTO users
     (telegram_user_id, name, dob, notes, verified)
@@ -293,12 +319,9 @@ async def finish_onboarding(update, context):
     conn.commit()
     conn.close()
 
-    await get_msg(update).reply_text("Account setup complete.")
-
     verified = context.user_data.get("verified")
 
     context.user_data.clear()
-
     context.user_data["verified"] = verified
 
     return "menu"

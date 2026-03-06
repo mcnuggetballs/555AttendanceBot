@@ -1,8 +1,9 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton
 from database import get_connection
 from utils.sheets_logger import log_attendance
-import math
 from datetime import datetime
+import math
+from ui import show_screen
 
 
 ADMIN_GROUP_ID = -1003584358970
@@ -21,21 +22,6 @@ ROLE_TOPICS = {
 ATTENDANCE_RADIUS = 120
 
 
-def nav_buttons():
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("⬅ Back", callback_data="back"),
-            InlineKeyboardButton("🏠 Menu", callback_data="menu")
-        ]
-    ])
-
-
-def get_msg(update):
-    if update.message:
-        return update.message
-    return update.callback_query.message
-
-
 def distance_m(lat1, lon1, lat2, lon2):
 
     R = 6371000
@@ -51,8 +37,6 @@ def distance_m(lat1, lon1, lat2, lon2):
 
     return R * c
 
-
-# ROLE SCREEN
 
 async def start_live(update, context):
 
@@ -74,25 +58,19 @@ async def start_live(update, context):
     keyboard = []
 
     for role in roles:
-        keyboard.append([
-            InlineKeyboardButton(role, callback_data=f"live_role|{role}")
-        ])
+        keyboard.append([InlineKeyboardButton(role, callback_data=f"live_role|{role}")])
 
-    keyboard.append([
-        InlineKeyboardButton("🏠 Menu", callback_data="menu")
-    ])
+    keyboard.append([InlineKeyboardButton("🏠 Menu", callback_data="menu")])
 
-    await get_msg(update).reply_text(
-        "Select role:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await show_screen(update, context, "Select role:", keyboard)
 
 
-# CLASS SCREEN
+async def select_class(update, context):
 
-async def show_class_screen(update, context):
+    query = update.callback_query
+    role = query.data.split("|")[1]
 
-    role = context.user_data.get("live_role")
+    context.user_data["live_role"] = role
 
     conn = get_connection()
     c = conn.cursor()
@@ -113,49 +91,30 @@ async def show_class_screen(update, context):
     keyboard = []
 
     for cls in classes:
-        keyboard.append([
-            InlineKeyboardButton(cls, callback_data=f"live_class|{cls}")
-        ])
+        keyboard.append([InlineKeyboardButton(cls, callback_data=f"live_class|{cls}")])
 
     keyboard.append([
-        InlineKeyboardButton("⬅ Back", callback_data="back"),
+        InlineKeyboardButton("⬅ Back", callback_data="menu_live"),
         InlineKeyboardButton("🏠 Menu", callback_data="menu")
     ])
 
-    await get_msg(update).reply_text(
-        "Select class:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await show_screen(update, context, "Select class:", keyboard)
 
-
-async def select_class(update, context):
-
-    query = update.callback_query
-
-    role = query.data.split("|")[1]
-
-    context.user_data["live_role"] = role
-
-    await show_class_screen(update, context)
-
-
-# LOCATION SCREEN
 
 async def request_location(update, context):
 
     query = update.callback_query
-
     cls = query.data.split("|")[1]
 
     context.user_data["live_class"] = cls
 
-    await query.message.reply_text(
-        "Send your location for attendance.",
-        reply_markup=nav_buttons()
-    )
+    keyboard = [
+        [InlineKeyboardButton("⬅ Back", callback_data="menu_live")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
 
+    await show_screen(update, context, "Send your location for attendance.", keyboard)
 
-# LOCATION HANDLER
 
 async def save_live_location(update, context):
 
@@ -192,9 +151,7 @@ async def save_live_location(update, context):
     WHERE user_roles.telegram_user_id=? AND user_roles.role_name=? AND class_codes.class_code=?
     """, (update.effective_user.id, role, cls))
 
-    venue = c.fetchone()
-
-    venue_name, venue_lat, venue_lng = venue
+    venue_name, venue_lat, venue_lng = c.fetchone()
 
     dist = distance_m(user_lat, user_lon, venue_lat, venue_lng)
 
@@ -222,10 +179,7 @@ async def save_live_location(update, context):
 
     conn.commit()
 
-    c.execute("""
-    SELECT name FROM users WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
-
+    c.execute("SELECT name FROM users WHERE telegram_user_id=?", (update.effective_user.id,))
     name = c.fetchone()[0]
 
     conn.close()
@@ -234,23 +188,12 @@ async def save_live_location(update, context):
 
     log_attendance(name, role, cls, venue_name, "Present")
 
-    log_message = f"""
-ATTENDANCE LOG
-
-Name: {name}
-Role: {role}
-Class: {cls}
-Venue: {venue_name}
-Status: Present
-Time: {timestamp}
-"""
-
     topic_id = ROLE_TOPICS.get(role)
 
     await context.bot.send_message(
         chat_id=ADMIN_GROUP_ID,
         message_thread_id=topic_id,
-        text=log_message
+        text=f"{name} — {cls} — Present"
     )
 
     context.user_data.pop("live_role", None)

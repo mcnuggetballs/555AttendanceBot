@@ -1,4 +1,5 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton
+from ui import show_screen
 
 
 async def show_menu(update, context):
@@ -12,9 +13,9 @@ async def show_menu(update, context):
         [InlineKeyboardButton("Who is Here?", callback_data="menu_who")]
     ]
 
-    markup = InlineKeyboardMarkup(keyboard)
-
-    if update.message:
-        await update.message.reply_text("Main Menu", reply_markup=markup)
-    else:
-        await update.callback_query.message.reply_text("Main Menu", reply_markup=markup)
+    await show_screen(
+        update,
+        context,
+        "📋 Main Menu",
+        keyboard
+    )
