@@ -9,6 +9,7 @@ from telegram.ext import (
 from database import init_db, get_connection
 from state_engine import handle_text, handle_callback, handle_location
 from screens import main_menu
+from ui import show_screen
 
 
 BOT_TOKEN = "8495877260:AAEKSGfSn9_imFhEFTdSdNtit_XY18OGoDA"
@@ -41,13 +42,16 @@ async def start(update, context):
 
     context.user_data["screen"] = "password"
 
-    await update.message.reply_text("Enter access password:")
+    await show_screen(
+        update,
+        context,
+        "Enter access password:"
+    )
 
 
 async def menu(update, context):
 
     if not context.user_data.get("verified"):
-        await update.message.reply_text("Use /start to begin.")
         return
 
     context.user_data["screen"] = "menu"
@@ -59,13 +63,24 @@ async def text_router(update, context):
 
     screen = context.user_data.get("screen")
 
+    # ---------- PASSWORD SCREEN ----------
     if screen == "password":
 
         password = update.message.text
 
+        # delete user message
+        try:
+            await update.message.delete()
+        except:
+            pass
+
         if password != BOT_PASSWORD:
 
-            await update.message.reply_text("Incorrect password. Try again.")
+            await show_screen(
+                update,
+                context,
+                "Incorrect password. Try again."
+            )
             return
 
         user_id = update.effective_user.id
@@ -89,12 +104,11 @@ async def text_router(update, context):
         context.user_data["verified"] = True
         context.user_data["screen"] = "menu"
 
-        await update.message.reply_text("Access granted.")
-
         await main_menu.show_menu(update, context)
 
         return
 
+    # ---------- ALL OTHER TEXT ----------
     await handle_text(update, context)
 
 
