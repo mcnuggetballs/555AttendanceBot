@@ -17,6 +17,32 @@ async def handle_text(update, context):
 
     screen = context.user_data.get("screen")
 
+    # ---------- SCREENS THAT SHOULD IGNORE TEXT ----------
+    button_only_screens = [
+        "onboarding_role",
+        "onboarding_add_class",
+        "live_role",
+        "live_class",
+        "late_role",
+        "late_class",
+        "menu"
+    ]
+
+    if screen in button_only_screens:
+        try:
+            await update.message.delete()
+        except:
+            pass
+        return
+    # -----------------------------------------------------
+
+    # ---------- DELETE USER MESSAGE ----------
+    try:
+        await update.message.delete()
+    except:
+        pass
+    # -----------------------------------------
+
     log(f"Current screen: {screen}")
 
     next_screen = None
@@ -79,6 +105,13 @@ async def handle_location(update, context):
 
     if not context.user_data.get("verified"):
         return
+
+    # ---------- DELETE USER LOCATION MESSAGE ----------
+    try:
+        await update.message.delete()
+    except:
+        pass
+    # --------------------------------------------------
 
     screen = context.user_data.get("screen")
 
@@ -222,9 +255,7 @@ async def handle_callback(update, context):
 
         if screen == "onboarding_venue":
             context.user_data["screen"] = "onboarding_location"
-            await update.callback_query.message.reply_text(
-                "Send venue location."
-            )
+            await onboarding.ask_class_code(update, context)
             return
 
 
@@ -232,7 +263,7 @@ async def handle_callback(update, context):
 
         if screen == "live_location":
             context.user_data["screen"] = "live_class"
-            await live.show_class_screen(update, context)
+            await live.start_live(update, context)
             return
 
         if screen == "live_class":
@@ -245,7 +276,7 @@ async def handle_callback(update, context):
 
         if screen == "late_eta":
             context.user_data["screen"] = "late_class"
-            await late.show_class_screen(update, context)
+            await late.start_late(update, context)
             return
 
         if screen == "late_class":

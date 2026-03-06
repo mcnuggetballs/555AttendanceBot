@@ -242,6 +242,9 @@ async def save_venue_name(update, context):
         ]
     ]
 
+    # IMPORTANT: change screen state
+    context.user_data["screen"] = "onboarding_add_class"
+
     await show_screen(
         update,
         context,
