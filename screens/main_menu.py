@@ -10,7 +10,8 @@ async def show_menu(update, context):
         [InlineKeyboardButton("Late Report", callback_data="menu_late")],
         [InlineKeyboardButton("Status", callback_data="menu_status")],
         [InlineKeyboardButton("Today's Attendance", callback_data="menu_today")],
-        [InlineKeyboardButton("Who is Here?", callback_data="menu_who")]
+        [InlineKeyboardButton("Who is Here?", callback_data="menu_who")],
+        [InlineKeyboardButton("Manage Classes", callback_data="menu_manage_classes")]
     ]
 
     await show_screen(

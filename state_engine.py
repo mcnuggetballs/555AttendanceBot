@@ -1,4 +1,4 @@
-from screens import main_menu, onboarding, live, late, status
+from screens import main_menu, onboarding, live, late, status, manage_classes
 from database import get_connection
 from admin_commands import today, who, who_class
 
@@ -22,17 +22,41 @@ async def handle_text(update, context):
 
     screen = context.user_data.get("screen")
 
-    # STUDENT NAME INPUT
+    # ---------------------
+    # LIVE STUDENT NAME
+    # ---------------------
+
     if screen == "live_student_name":
         context.user_data["student_name"] = update.message.text
         context.user_data["screen"] = "live_location"
         await live.request_location(update, context)
         return
 
+    # ---------------------
+    # LATE STUDENT NAME
+    # ---------------------
+
     if screen == "late_student_name":
         context.user_data["student_name"] = update.message.text
         context.user_data["screen"] = "late_eta"
         await late.request_eta(update, context)
+        return
+
+    # ---------------------
+    # MANAGE CLASS CODE
+    # ---------------------
+
+    if screen == "manage_add_class_code":
+
+        context.user_data["manage_class_code"] = update.message.text.strip()
+        context.user_data["screen"] = "manage_location"
+
+        await manage_classes.ask_location(update, context)
+        return
+
+    if screen == "manage_venue":
+
+        await manage_classes.save_new_class(update, context)
         return
 
     button_only_screens = [
@@ -43,7 +67,11 @@ async def handle_text(update, context):
         "late_role",
         "late_class",
         "menu",
-        "live_admin_hours"
+        "live_admin_hours",
+        "manage_classes",
+        "manage_role_select",
+        "manage_delete_role",
+        "manage_delete_class"
     ]
 
     if screen in button_only_screens:
@@ -117,6 +145,10 @@ async def handle_location(update, context):
 
     screen = context.user_data.get("screen")
 
+    # ---------------------
+    # ONBOARDING LOCATION
+    # ---------------------
+
     if screen == "onboarding_location":
 
         next_screen = await onboarding.save_venue_location(update, context)
@@ -127,8 +159,29 @@ async def handle_location(update, context):
 
         return
 
+    # ---------------------
+    # LIVE LOCATION
+    # ---------------------
+
     if screen == "live_location":
         await live.save_live_location(update, context)
+        return
+
+    # ---------------------
+    # MANAGE CLASS LOCATION
+    # ---------------------
+
+    if screen == "manage_location":
+
+        location = update.message.location
+
+        context.user_data["venue_lat"] = location.latitude
+        context.user_data["venue_lng"] = location.longitude
+
+        context.user_data["screen"] = "manage_venue"
+
+        await manage_classes.ask_venue_name(update, context)
+        return
 
 
 async def handle_callback(update, context):
@@ -162,6 +215,39 @@ async def handle_callback(update, context):
         await who_class(update, context)
         return
 
+    if data == "menu_manage_classes":
+        await manage_classes.start(update, context)
+        return
+
+    # -------------------------
+    # MANAGE CLASSES FLOW
+    # -------------------------
+
+    if data == "manage_add_class":
+        context.user_data["screen"] = "manage_role_select"
+        await manage_classes.select_role(update, context)
+        return
+
+    if data == "manage_delete_class":
+        context.user_data["screen"] = "manage_delete_role"
+        await manage_classes.select_role_delete(update, context)
+        return
+
+    if data.startswith("manage_role|"):
+        context.user_data["screen"] = "manage_add_class_code"
+        await manage_classes.ask_class_code(update, context)
+        return
+
+    if data.startswith("manage_delete_role|"):
+        context.user_data["screen"] = "manage_delete_class"
+        await manage_classes.select_class_delete(update, context)
+        return
+
+    if data.startswith("manage_delete_class|"):
+        await manage_classes.delete_class(update, context)
+        return
+
+    # -------------------------
 
     if data == "create_account":
 
@@ -186,23 +272,19 @@ async def handle_callback(update, context):
         await onboarding.ask_name(update, context)
         return
 
-
     if data.startswith("role_toggle"):
         await onboarding.toggle_role(update, context)
         return
-
 
     if data == "role_done":
         context.user_data["screen"] = "onboarding_notes"
         await onboarding.ask_notes(update, context)
         return
 
-
     if data == "add_class_yes":
         context.user_data["screen"] = "onboarding_class_code"
         await onboarding.ask_class_code(update, context)
         return
-
 
     if data == "add_class_no":
 
@@ -219,8 +301,12 @@ async def handle_callback(update, context):
 
         return
 
-
     if data == "back":
+
+        if screen.startswith("manage"):
+            context.user_data["screen"] = "manage_classes"
+            await manage_classes.start(update, context)
+            return
 
         if screen == "onboarding_dob":
             context.user_data["screen"] = "onboarding_name"
@@ -272,29 +358,24 @@ async def handle_callback(update, context):
             await late.start_late(update, context)
             return
 
-
     if data == "menu_live":
         context.user_data["screen"] = "live_role"
         await live.start_live(update, context)
         return
-
 
     if data == "menu_late":
         context.user_data["screen"] = "late_role"
         await late.start_late(update, context)
         return
 
-
     if data == "menu_status":
         await status.show_status(update, context)
         return
-
 
     if data.startswith("live_role|"):
         context.user_data["screen"] = "live_class"
         await live.select_class(update, context)
         return
-
 
     if data.startswith("live_class|"):
 
@@ -322,7 +403,6 @@ async def handle_callback(update, context):
         await live.request_location(update, context)
         return
 
-
     if data.startswith("admin_hours|"):
 
         hours = int(data.split("|")[1])
@@ -332,12 +412,10 @@ async def handle_callback(update, context):
         await live.request_location(update, context)
         return
 
-
     if data.startswith("late_role|"):
         context.user_data["screen"] = "late_class"
         await late.select_class(update, context)
         return
-
 
     if data.startswith("late_class|"):
 
