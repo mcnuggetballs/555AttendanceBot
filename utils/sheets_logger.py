@@ -2,9 +2,8 @@ import gspread
 from google.auth import default
 from datetime import datetime
 
-SHEET_NAME = "Attendance Logs"
+SPREADSHEET_ID = "1abcDEFghiJKLmnopQRstuVWxyz123"
 
-# Use VM credentials instead of JSON key
 creds, _ = default(scopes=[
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -12,7 +11,7 @@ creds, _ = default(scopes=[
 
 client = gspread.authorize(creds)
 
-sheet = client.open(SHEET_NAME).sheet1
+sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 
 def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
