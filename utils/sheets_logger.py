@@ -1,17 +1,15 @@
 import gspread
-from google.auth import default
+from google.auth import compute_engine
 from datetime import datetime
 
-SPREADSHEET_ID = "1abcDEFghiJKLmnopQRstuVWxyz123"
+SHEET_NAME = "Attendance Logs"
 
-creds, _ = default(scopes=[
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-])
+# Force Compute Engine credentials
+creds = compute_engine.Credentials()
 
 client = gspread.authorize(creds)
 
-sheet = client.open_by_key(SPREADSHEET_ID).sheet1
+sheet = client.open(SHEET_NAME).sheet1
 
 
 def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
