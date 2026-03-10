@@ -42,7 +42,8 @@ async def handle_text(update, context):
         "live_class",
         "late_role",
         "late_class",
-        "menu"
+        "menu",
+        "live_admin_hours"
     ]
 
     if screen in button_only_screens:
@@ -307,6 +308,25 @@ async def handle_callback(update, context):
 
             await live.ask_student_name(update, context)
             return
+
+        if role == "Admin":
+            context.user_data["screen"] = "live_admin_hours"
+
+            cls = data.split("|")[1]
+            context.user_data["live_class"] = cls
+
+            await live.ask_admin_hours(update, context)
+            return
+
+        context.user_data["screen"] = "live_location"
+        await live.request_location(update, context)
+        return
+
+
+    if data.startswith("admin_hours|"):
+
+        hours = int(data.split("|")[1])
+        context.user_data["admin_hours"] = hours
 
         context.user_data["screen"] = "live_location"
         await live.request_location(update, context)

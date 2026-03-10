@@ -50,6 +50,7 @@ def init_db():
         student_name TEXT,
         latitude REAL,
         longitude REAL,
+        admin_hours INTEGER,
         date TEXT,
         timestamp TEXT
     )
@@ -72,6 +73,13 @@ def init_db():
     CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_attendance
     ON attendance_logs(telegram_user_id, class_code, date)
     """)
+
+    # Ensure admin_hours column exists for older databases
+    c.execute("PRAGMA table_info(attendance_logs)")
+    columns = [col[1] for col in c.fetchall()]
+
+    if "admin_hours" not in columns:
+        c.execute("ALTER TABLE attendance_logs ADD COLUMN admin_hours INTEGER")
 
     conn.commit()
     conn.close()

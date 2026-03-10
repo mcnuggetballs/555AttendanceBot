@@ -19,7 +19,7 @@ client = gspread.authorize(creds)
 sheet = client.open(SHEET_NAME).sheet1
 
 
-def log_attendance(name, role, cls, student, venue, status):
+def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -30,7 +30,8 @@ def log_attendance(name, role, cls, student, venue, status):
         cls,
         student,
         venue,
-        status
+        status,
+        admin_hours if role == "Admin" else ""
     ]
 
     sheet.append_row(row)

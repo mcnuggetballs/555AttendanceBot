@@ -38,6 +38,33 @@ def distance_m(lat1, lon1, lat2, lon2):
     return R * c
 
 
+def admin_hours_keyboard():
+
+    keyboard = []
+
+    for i in range(1, 6):
+        keyboard.append([
+            InlineKeyboardButton(str(i), callback_data=f"admin_hours|{i}")
+        ])
+
+    keyboard.append([InlineKeyboardButton("⬅ Back", callback_data="menu_live")])
+    keyboard.append([InlineKeyboardButton("🏠 Menu", callback_data="menu")])
+
+    return keyboard
+
+
+async def ask_admin_hours(update, context):
+
+    context.user_data["screen"] = "live_admin_hours"
+
+    await show_screen(
+        update,
+        context,
+        "How many hours of Admin work are you doing today?",
+        admin_hours_keyboard()
+    )
+
+
 async def start_live(update, context):
 
     user_id = update.effective_user.id
@@ -113,7 +140,8 @@ async def ask_student_name(update, context):
 
 async def request_location(update, context):
 
-    if update.callback_query:
+    # FIX: only update class if coming from live_class callback
+    if update.callback_query and update.callback_query.data.startswith("live_class|"):
         query = update.callback_query
         cls = query.data.split("|")[1]
         context.user_data["live_class"] = cls
@@ -133,8 +161,8 @@ async def save_live_location(update, context):
 
     role = context.user_data.get("live_role")
     cls = context.user_data.get("live_class")
-
     student = context.user_data.get("student_name")
+    admin_hours = context.user_data.get("admin_hours")
 
     conn = get_connection()
     c = conn.cursor()
@@ -190,8 +218,8 @@ async def save_live_location(update, context):
 
     c.execute("""
     INSERT INTO attendance_logs
-    (telegram_user_id, role_name, class_code, student_name, latitude, longitude, date, timestamp)
-    VALUES (?,?,?,?,?,?,?,?)
+    (telegram_user_id, role_name, class_code, student_name, latitude, longitude, admin_hours, date, timestamp)
+    VALUES (?,?,?,?,?,?,?,?,?)
     """, (
         update.effective_user.id,
         role,
@@ -199,6 +227,7 @@ async def save_live_location(update, context):
         student,
         user_lat,
         user_lon,
+        admin_hours,
         today,
         timestamp
     ))
@@ -219,7 +248,7 @@ async def save_live_location(update, context):
         keyboard
     )
 
-    log_attendance(name, role, cls, student, venue_name, "Present")
+    log_attendance(name, role, cls, student, venue_name, "Present", admin_hours)
 
     topic_id = ROLE_TOPICS.get(role)
 
@@ -233,8 +262,12 @@ async def save_live_location(update, context):
     if student:
         log_message += f"Student: {student}\n"
 
+    log_message += f"Venue: {venue_name}\n"
+
+    if role == "Admin":
+        log_message += f"Admin Hours: {admin_hours}\n"
+
     log_message += (
-        f"Venue: {venue_name}\n"
         "Status: Present\n"
         f"Time: {timestamp}"
     )
@@ -248,3 +281,4 @@ async def save_live_location(update, context):
     context.user_data.pop("live_role", None)
     context.user_data.pop("live_class", None)
     context.user_data.pop("student_name", None)
+    context.user_data.pop("admin_hours", None)
