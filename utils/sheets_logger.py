@@ -1,15 +1,20 @@
 import gspread
 from google.auth import compute_engine
+from google.auth.transport.requests import Request
 from datetime import datetime
 
 SPREADSHEET_ID = "1WN9gSiKFOgpJn6bZnyqeLVOFv8ybH3J_ZoyLVG_a6Yg"
 
+# explicitly request scopes
 creds = compute_engine.Credentials(
     scopes=[
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
 )
+
+# refresh token with scopes
+creds.refresh(Request())
 
 client = gspread.authorize(creds)
 
