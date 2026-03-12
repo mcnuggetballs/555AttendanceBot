@@ -88,7 +88,10 @@ async def handle_text(update, context):
         "manage_role_select",
         "manage_delete_role",
         "manage_delete_class",
-        "edit_profile_menu"
+        "edit_profile_menu",
+        "edit_roles_menu",
+        "add_role_menu",
+        "remove_role_menu"
     ]
 
     if screen in button_only_screens:
@@ -248,8 +251,31 @@ async def handle_callback(update, context):
         await edit_profile.ask_notes(update, context)
         return
 
+    # -------------------------
+    # EDIT ROLES / CLASSES
+    # -------------------------
+
     if data == "edit_roles":
-        await manage_classes.start(update, context)
+        context.user_data["screen"] = "edit_roles_menu"
+        await edit_profile.edit_roles_menu(update, context)
+        return
+
+    if data == "add_role":
+        context.user_data["screen"] = "add_role_menu"
+        await edit_profile.add_role_menu(update, context)
+        return
+
+    if data.startswith("add_role_confirm|"):
+        await edit_profile.add_role(update, context)
+        return
+
+    if data == "remove_role":
+        context.user_data["screen"] = "remove_role_menu"
+        await edit_profile.remove_role_menu(update, context)
+        return
+
+    if data.startswith("remove_role_confirm|"):
+        await edit_profile.remove_role(update, context)
         return
 
     # -------------------------
