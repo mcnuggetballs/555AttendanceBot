@@ -1,4 +1,4 @@
-from screens import main_menu, onboarding, live, late, status, manage_classes
+from screens import main_menu, onboarding, live, late, status, manage_classes, edit_profile
 from database import get_connection
 from admin_commands import today, who, who_class
 
@@ -21,6 +21,22 @@ async def handle_text(update, context):
         pass
 
     screen = context.user_data.get("screen")
+
+    # ---------------------
+    # EDIT PROFILE INPUT
+    # ---------------------
+
+    if screen == "edit_name_input":
+        await edit_profile.save_name(update, context)
+        return
+
+    if screen == "edit_dob_input":
+        await edit_profile.save_dob(update, context)
+        return
+
+    if screen == "edit_notes_input":
+        await edit_profile.save_notes(update, context)
+        return
 
     # ---------------------
     # LIVE STUDENT NAME
@@ -71,7 +87,8 @@ async def handle_text(update, context):
         "manage_classes",
         "manage_role_select",
         "manage_delete_role",
-        "manage_delete_class"
+        "manage_delete_class",
+        "edit_profile_menu"
     ]
 
     if screen in button_only_screens:
@@ -145,10 +162,6 @@ async def handle_location(update, context):
 
     screen = context.user_data.get("screen")
 
-    # ---------------------
-    # ONBOARDING LOCATION
-    # ---------------------
-
     if screen == "onboarding_location":
 
         next_screen = await onboarding.save_venue_location(update, context)
@@ -159,17 +172,9 @@ async def handle_location(update, context):
 
         return
 
-    # ---------------------
-    # LIVE LOCATION
-    # ---------------------
-
     if screen == "live_location":
         await live.save_live_location(update, context)
         return
-
-    # ---------------------
-    # MANAGE CLASS LOCATION
-    # ---------------------
 
     if screen == "manage_location":
 
@@ -216,6 +221,34 @@ async def handle_callback(update, context):
         return
 
     if data == "menu_manage_classes":
+        await manage_classes.start(update, context)
+        return
+
+    # -------------------------
+    # EDIT PROFILE
+    # -------------------------
+
+    if data == "menu_edit_profile":
+        context.user_data["screen"] = "edit_profile_menu"
+        await edit_profile.show_profile(update, context)
+        return
+
+    if data == "edit_name":
+        context.user_data["screen"] = "edit_name_input"
+        await edit_profile.ask_name(update, context)
+        return
+
+    if data == "edit_dob":
+        context.user_data["screen"] = "edit_dob_input"
+        await edit_profile.ask_dob(update, context)
+        return
+
+    if data == "edit_notes":
+        context.user_data["screen"] = "edit_notes_input"
+        await edit_profile.ask_notes(update, context)
+        return
+
+    if data == "edit_roles":
         await manage_classes.start(update, context)
         return
 
@@ -306,6 +339,11 @@ async def handle_callback(update, context):
         if screen.startswith("manage"):
             context.user_data["screen"] = "manage_classes"
             await manage_classes.start(update, context)
+            return
+
+        if screen.startswith("edit"):
+            context.user_data["screen"] = "edit_profile_menu"
+            await edit_profile.show_profile(update, context)
             return
 
         if screen == "onboarding_dob":
