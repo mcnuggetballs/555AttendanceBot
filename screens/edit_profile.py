@@ -95,7 +95,7 @@ async def show_profile(update, context):
         [InlineKeyboardButton("Edit Name", callback_data="edit_name")],
         [InlineKeyboardButton("Edit DOB", callback_data="edit_dob")],
         [InlineKeyboardButton("Edit Notes", callback_data="edit_notes")],
-        [InlineKeyboardButton("Edit Roles / Classes", callback_data="edit_roles")],
+        [InlineKeyboardButton("Edit Roles", callback_data="edit_roles")],
         [
             InlineKeyboardButton("⬅ Back", callback_data="menu"),
             InlineKeyboardButton("🏠 Menu", callback_data="menu")
