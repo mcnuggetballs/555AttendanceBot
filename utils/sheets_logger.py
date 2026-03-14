@@ -3,11 +3,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-now = datetime.now(ZoneInfo("Asia/Singapore"))
-
-date = now.strftime("%Y-%m-%d")
-time = now.strftime("%H:%M")
-
 SHEET_NAME = "Attendance Logs"
 
 scope = [
@@ -49,7 +44,7 @@ def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
 
     ensure_headers()
 
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Asia/Singapore"))
 
     date = now.strftime("%Y-%m-%d")
     time = now.strftime("%H:%M")
