@@ -19,12 +19,38 @@ client = gspread.authorize(creds)
 sheet = client.open(SHEET_NAME).sheet1
 
 
+def ensure_headers():
+
+    headers = [
+        "Date",
+        "Time",
+        "Name",
+        "Role",
+        "Class",
+        "Student",
+        "Venue",
+        "Status",
+        "Admin Hours"
+    ]
+
+    first_row = sheet.row_values(1)
+
+    if not first_row:
+        sheet.insert_row(headers, 1)
+
+
 def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    ensure_headers()
+
+    now = datetime.now()
+
+    date = now.strftime("%Y-%m-%d")
+    time = now.strftime("%H:%M")
 
     row = [
-        timestamp,
+        date,
+        time,
         name,
         role,
         cls,
