@@ -1,6 +1,12 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+now = datetime.now(ZoneInfo("Asia/Singapore"))
+
+date = now.strftime("%Y-%m-%d")
+time = now.strftime("%H:%M")
 
 SHEET_NAME = "Attendance Logs"
 
