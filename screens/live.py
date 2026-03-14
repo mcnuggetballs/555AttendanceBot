@@ -2,6 +2,7 @@ from telegram import InlineKeyboardButton
 from database import get_connection
 from utils.sheets_logger import log_attendance
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import math
 from ui import show_screen
 
@@ -167,7 +168,7 @@ async def save_live_location(update, context):
     conn = get_connection()
     c = conn.cursor()
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d")
 
     c.execute("""
     SELECT id
@@ -214,7 +215,7 @@ async def save_live_location(update, context):
         conn.close()
         return
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    timestamp = datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d %H:%M")
 
     c.execute("""
     INSERT INTO attendance_logs
