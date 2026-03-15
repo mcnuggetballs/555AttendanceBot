@@ -46,7 +46,7 @@ def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
 
     now = datetime.now(ZoneInfo("Asia/Singapore"))
 
-    date = now.strftime("%m/%d/%Y")
+    date = now.date()
     time = now.strftime("%H:%M")
 
     row = [
