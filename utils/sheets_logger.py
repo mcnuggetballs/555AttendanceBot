@@ -46,7 +46,7 @@ def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
 
     now = datetime.now(ZoneInfo("Asia/Singapore"))
 
-    date = now.date()
+    date = now.strftime("%m/%d/%Y")
     time = now.strftime("%H:%M")
 
     row = [
@@ -61,4 +61,4 @@ def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
         admin_hours if role == "Admin" else ""
     ]
 
-    sheet.append_row(row)
+    sheet.append_row(row, value_input_option="USER_ENTERED")
