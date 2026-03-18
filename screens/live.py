@@ -175,7 +175,8 @@ async def save_live_location(update, context):
         return
 
     # 2. Reject forwarded locations
-    if update.message.forward_date:
+    if getattr(update.message, "forward_date", None):
+
         keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
         await show_screen(
