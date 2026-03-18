@@ -156,9 +156,53 @@ async def request_location(update, context):
 
 
 async def save_live_location(update, context):
+    # ---------------------
+    # SECURITY CHECKS
+    # ---------------------
 
-    user_lat = update.message.location.latitude
-    user_lon = update.message.location.longitude
+    location = update.message.location
+
+    # 1. Must be LIVE location
+    if not location.live_period:
+        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+        await show_screen(
+            update,
+            context,
+            "⚠ Please send a LIVE location (not a static/pinned one).",
+            keyboard
+        )
+        return
+
+    # 2. Reject forwarded locations
+    if update.message.forward_date:
+        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+        await show_screen(
+            update,
+            context,
+            "⚠ Forwarded locations are not allowed.",
+            keyboard
+        )
+        return
+
+    # 3. Check message freshness (within 30 seconds)
+    now_utc = datetime.now(ZoneInfo("UTC"))
+    msg_time = update.message.date
+
+    if (now_utc - msg_time).total_seconds() > 30:
+        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+        await show_screen(
+            update,
+            context,
+            "⚠ Location is too old. Please send again.",
+            keyboard
+        )
+        return
+    
+    user_lat = location.latitude
+    user_lon = location.longitude
 
     role = context.user_data.get("live_role")
     cls = context.user_data.get("live_class")
