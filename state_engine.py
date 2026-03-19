@@ -48,6 +48,13 @@ async def handle_text(update, context):
         await live.request_location(update, context)
         return
 
+    # ✅ ADDED: LIVE SCHOOL NAME (AEP)
+    if screen == "live_school_name":
+        context.user_data["student_name"] = update.message.text
+        context.user_data["screen"] = "live_location"
+        await live.request_location(update, context)
+        return
+
     # ---------------------
     # LATE STUDENT NAME
     # ---------------------
@@ -441,25 +448,26 @@ async def handle_callback(update, context):
         await live.select_class(update, context)
         return
 
+    # ✅ MODIFIED BLOCK ONLY
     if data.startswith("live_class|"):
 
         role = context.user_data.get("live_role")
 
+        cls = data.split("|")[1]
+        context.user_data["live_class"] = cls
+
         if role == "Private Instructor":
             context.user_data["screen"] = "live_student_name"
-
-            cls = data.split("|")[1]
-            context.user_data["live_class"] = cls
-
             await live.ask_student_name(update, context)
             return
 
-        if role == "Admin":
+        if role == "AEP Performer":
+            context.user_data["screen"] = "live_school_name"
+            await live.ask_school_name(update, context)
+            return
+
+        if role in ["Admin", "External Instructor"]:
             context.user_data["screen"] = "live_admin_hours"
-
-            cls = data.split("|")[1]
-            context.user_data["live_class"] = cls
-
             await live.ask_admin_hours(update, context)
             return
 

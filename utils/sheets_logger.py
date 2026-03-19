@@ -28,10 +28,10 @@ def ensure_headers():
         "Name",
         "Role",
         "Class",
-        "Student",
+        "Name",        # ✅ was "Student"
         "Venue",
         "Status",
-        "Admin Hours"
+        "Hours"        # ✅ was "Admin Hours"
     ]
 
     first_row = sheet.row_values(1)
@@ -49,6 +49,10 @@ def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
     date = now.strftime("%m/%d/%Y")
     time = now.strftime("%H:%M")
 
+    # ✅ Fix apostrophe issue by forcing string cleanly
+    date = str(date)
+    time = str(time)
+
     row = [
         date,
         time,
@@ -58,7 +62,7 @@ def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
         student,
         venue,
         status,
-        admin_hours if role == "Admin" else ""
+        admin_hours if role in ["Admin", "External Instructor"] else ""  # ✅ UPDATED
     ]
 
     sheet.append_row(row, value_input_option="USER_ENTERED")

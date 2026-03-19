@@ -61,9 +61,20 @@ async def ask_admin_hours(update, context):
     await show_screen(
         update,
         context,
-        "How many hours of Admin work are you doing today?",
+        "How many hours are you doing today?",
         admin_hours_keyboard()
     )
+
+
+# ✅ NEW: AEP school input
+async def ask_school_name(update, context):
+
+    keyboard = [
+        [InlineKeyboardButton("⬅ Back", callback_data="menu_live")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
+
+    await show_screen(update, context, "Enter school name:", keyboard)
 
 
 async def start_live(update, context):
@@ -136,12 +147,11 @@ async def ask_student_name(update, context):
         [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
     ]
 
-    await show_screen(update, context, "Enter student name:", keyboard)
+    await show_screen(update, context, "Enter name:", keyboard)
 
 
 async def request_location(update, context):
 
-    # FIX: only update class if coming from live_class callback
     if update.callback_query and update.callback_query.data.startswith("live_class|"):
         query = update.callback_query
         cls = query.data.split("|")[1]
@@ -162,8 +172,8 @@ async def save_live_location(update, context):
 
     location = update.message.location
 
-    # 1. Must be LIVE location
     if not location.live_period:
+
         keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
         await show_screen(
@@ -174,7 +184,6 @@ async def save_live_location(update, context):
         )
         return
 
-    # 2. Reject forwarded locations
     if getattr(update.message, "forward_date", None):
 
         keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
@@ -187,11 +196,11 @@ async def save_live_location(update, context):
         )
         return
 
-    # 3. Check message freshness (within 30 seconds)
     now_utc = datetime.now(ZoneInfo("UTC"))
     msg_time = update.message.date
 
     if (now_utc - msg_time).total_seconds() > 30:
+
         keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
         await show_screen(
@@ -201,7 +210,7 @@ async def save_live_location(update, context):
             keyboard
         )
         return
-    
+
     user_lat = location.latitude
     user_lon = location.longitude
 
@@ -306,12 +315,13 @@ async def save_live_location(update, context):
     )
 
     if student:
-        log_message += f"Student: {student}\n"
+        log_message += f"Name: {student}\n"
 
     log_message += f"Venue: {venue_name}\n"
 
-    if role == "Admin":
-        log_message += f"Admin Hours: {admin_hours}\n"
+    # ✅ UPDATED: show hours for both Admin + External
+    if admin_hours:
+        log_message += f"Hours: {admin_hours}\n"
 
     log_message += (
         "Status: Present\n"
