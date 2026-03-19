@@ -28,10 +28,10 @@ def ensure_headers():
         "Name",
         "Role",
         "Class",
-        "Name",        # ✅ was "Student"
+        "Student/School Name",
         "Venue",
         "Status",
-        "Hours"        # ✅ was "Admin Hours"
+        "Hours"
     ]
 
     first_row = sheet.row_values(1)

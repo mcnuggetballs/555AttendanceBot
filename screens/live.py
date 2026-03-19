@@ -315,12 +315,11 @@ async def save_live_location(update, context):
     )
 
     if student:
-        log_message += f"Name: {student}\n"
+        log_message += f"Student/School Name: {student}\n"
 
     log_message += f"Venue: {venue_name}\n"
 
-    # ✅ UPDATED: show hours for both Admin + External
-    if admin_hours:
+    if role in ["Admin", "External Instructor"]:
         log_message += f"Hours: {admin_hours}\n"
 
     log_message += (
