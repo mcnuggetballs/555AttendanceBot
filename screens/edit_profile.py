@@ -4,16 +4,15 @@ from ui import show_screen
 from screens.onboarding import ROLES
 
 
+MASTER_PASSWORD = "hbgw9unbwobnw"
+
+
 async def show_profile(update, context):
 
     user_id = update.effective_user.id
 
     conn = get_connection()
     c = conn.cursor()
-
-    # -------------------------
-    # BASIC USER INFO
-    # -------------------------
 
     c.execute("""
     SELECT name, dob, notes
@@ -44,10 +43,6 @@ async def show_profile(update, context):
     if not notes:
         notes = "None"
 
-    # -------------------------
-    # ROLES + CLASSES
-    # -------------------------
-
     c.execute("""
     SELECT id, role_name
     FROM user_roles
@@ -77,10 +72,6 @@ async def show_profile(update, context):
 
     if not role_text:
         role_text = "None"
-
-    # -------------------------
-    # PROFILE TEXT
-    # -------------------------
 
     text = (
         "👤 *Profile*\n\n"
@@ -120,12 +111,7 @@ async def ask_name(update, context):
         ]
     ]
 
-    await show_screen(
-        update,
-        context,
-        "Enter your new name:",
-        keyboard
-    )
+    await show_screen(update, context, "Enter your new name:", keyboard)
 
 
 async def save_name(update, context):
@@ -160,12 +146,7 @@ async def ask_dob(update, context):
         ]
     ]
 
-    await show_screen(
-        update,
-        context,
-        "Enter new DOB (DDMMYYYY):",
-        keyboard
-    )
+    await show_screen(update, context, "Enter new DOB (DDMMYYYY):", keyboard)
 
 
 async def save_dob(update, context):
@@ -231,7 +212,7 @@ async def save_notes(update, context):
 
 
 # =========================================================
-# NEW ROLE MANAGEMENT FEATURES
+# ROLE MANAGEMENT
 # =========================================================
 
 async def edit_roles_menu(update, context):
@@ -245,12 +226,7 @@ async def edit_roles_menu(update, context):
         ]
     ]
 
-    await show_screen(
-        update,
-        context,
-        "Manage your roles:",
-        keyboard
-    )
+    await show_screen(update, context, "Manage your roles:", keyboard)
 
 
 # -------------------------
@@ -274,7 +250,9 @@ async def add_role_menu(update, context):
 
     keyboard = []
 
-    for role in ROLES:
+    AVAILABLE_ROLES = ROLES + ["Master Control"]  # ✅ ADD HERE
+
+    for role in AVAILABLE_ROLES:
         if role not in existing:
             keyboard.append([
                 InlineKeyboardButton(role, callback_data=f"add_role_confirm|{role}")
@@ -291,6 +269,15 @@ async def add_role(update, context):
 
     role = update.callback_query.data.split("|")[1]
 
+    # 🚨 MASTER CONTROL PROTECTION
+    if role == "Master Control":
+        context.user_data["pending_role"] = role
+        context.user_data["screen"] = "master_add_password"
+
+        await show_screen(update, context, "Enter Master Control password:")
+        return
+
+    # NORMAL ROLE INSERT
     conn = get_connection()
     c = conn.cursor()
 
@@ -353,13 +340,11 @@ async def remove_role(update, context):
 
     role_id = c.fetchone()[0]
 
-    # delete classes first
     c.execute("""
     DELETE FROM class_codes
     WHERE role_id=?
     """, (role_id,))
 
-    # delete role
     c.execute("""
     DELETE FROM user_roles
     WHERE id=?

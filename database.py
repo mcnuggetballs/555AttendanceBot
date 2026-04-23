@@ -78,6 +78,7 @@ def init_db():
     c.execute("PRAGMA table_info(attendance_logs)")
     columns = [col[1] for col in c.fetchall()]
 
+    # Ensure admin_hours (Hours/Pax) exists
     if "admin_hours" not in columns:
         c.execute("ALTER TABLE attendance_logs ADD COLUMN admin_hours INTEGER")
 

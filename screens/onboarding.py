@@ -9,7 +9,9 @@ ROLES = [
     "Private Instructor",
     "Admin",
     "Student Mentor",
-    "AEP Performer"
+    "AEP Performer",
+    "Personal Trainer"   # ✅ ADDED
+    # ❌ DO NOT ADD Master Control HERE
 ]
 
 
@@ -197,7 +199,6 @@ async def save_venue_location(update, context):
     context.user_data["venue_lat"] = location.latitude
     context.user_data["venue_lng"] = location.longitude
 
-    # IMPORTANT: do NOT show UI here anymore
     return "onboarding_venue"
 
 

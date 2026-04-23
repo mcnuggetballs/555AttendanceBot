@@ -1,11 +1,60 @@
 from screens import main_menu, onboarding, live, late, status, manage_classes, edit_profile
 from database import get_connection
 from admin_commands import today, who, who_class
+from ui import show_screen
 
+MASTER_PASSWORD = "hbgw9unbwobnw"
+
+MASTER_FIELDS = [
+    ("date", "Enter Date (MM/DD/YYYY):"),
+    ("time", "Enter Time (HH:MM):"),
+    ("name", "Enter Name:"),
+    ("role", "Enter Role:"),
+    ("class_code", "Enter Class Code:"),
+    ("student", "Enter Student Name(s):"),
+    ("venue", "Enter Venue:"),
+    ("status", "Enter Status (Present/Late):"),
+    ("hours", "Enter Hours/Pax:")
+]
 
 def log(msg):
     print("[ENGINE]", msg)
+    
+async def ask_next_master_field(update, context):
+    index = context.user_data.get("master_index", 0)
 
+    if index >= len(MASTER_FIELDS):
+        await save_master_entry(update, context)
+        return
+
+    _, prompt = MASTER_FIELDS[index]
+    await show_screen(update, context, prompt)
+
+
+async def save_master_entry(update, context):
+    from utils.sheets_logger import log_attendance
+
+    data = context.user_data["master_data"]
+
+    log_attendance(
+        data.get("name"),
+        data.get("role"),
+        data.get("class_code"),
+        data.get("student"),
+        data.get("venue"),
+        data.get("status"),
+        data.get("hours")
+    )
+
+    await show_screen(update, context, "✅ Manual entry recorded.")
+    verified = context.user_data.get("verified")
+    ui_message_id = context.user_data.get("ui_message_id")
+
+    context.user_data.clear()
+
+    context.user_data["verified"] = verified
+    context.user_data["ui_message_id"] = ui_message_id
+    context.user_data["screen"] = "menu"
 
 async def handle_text(update, context):
 
@@ -21,6 +70,91 @@ async def handle_text(update, context):
         pass
 
     screen = context.user_data.get("screen")
+    
+    # ---------------------
+    # Master
+    # ---------------------
+    
+    if screen == "master_add_password":
+
+        if update.message.text != MASTER_PASSWORD:
+            await show_screen(update, context, "❌ Invalid password. Try again:")
+            return
+
+        role = context.user_data.pop("pending_role")
+
+        conn = get_connection()
+        c = conn.cursor()
+
+        c.execute("""
+        INSERT INTO user_roles (telegram_user_id, role_name)
+        VALUES (?,?)
+        """, (update.effective_user.id, role))
+
+        conn.commit()
+        conn.close()
+
+        await show_screen(update, context, "✅ Master Control added.")
+        context.user_data["screen"] = "menu"
+        return
+        
+    if screen == "master_use_password":
+
+        if update.message.text != MASTER_PASSWORD:
+            await show_screen(update, context, "❌ Invalid password. Try again:")
+            return
+
+        context.user_data["screen"] = "master_manual_entry"
+        context.user_data["master_data"] = {}
+        context.user_data["master_index"] = 0
+
+        await ask_next_master_field(update, context)
+        return
+        
+    if screen == "master_manual_entry":
+
+        index = context.user_data.get("master_index", 0)
+        field, _ = MASTER_FIELDS[index]
+
+        value = update.message.text
+        if value == "-":
+            value = ""
+
+        context.user_data["master_data"][field] = value
+        context.user_data["master_index"] = index + 1
+
+        await ask_next_master_field(update, context)
+        return
+        
+    # ---------------------
+    # Trainer
+    # ---------------------
+    
+    if screen == "pt_student_names":
+        context.user_data["student_name"] = update.message.text
+        context.user_data["screen"] = "pt_student_count"
+
+        await show_screen(update, context, "Enter number of students:")
+        return
+
+
+    if screen == "pt_student_count":
+        try:
+            count = int(update.message.text)
+        except:
+            await show_screen(update, context, "❌ Enter a valid number.")
+            return
+
+        # ✅ ADD THIS HERE
+        if count <= 0:
+            await show_screen(update, context, "❌ Enter a valid number greater than 0.")
+            return
+
+        context.user_data["admin_hours"] = count
+        context.user_data["screen"] = "live_location"
+
+        await live.request_location(update, context)
+        return
 
     # ---------------------
     # EDIT PROFILE INPUT
@@ -444,6 +578,15 @@ async def handle_callback(update, context):
         return
 
     if data.startswith("live_role|"):
+
+        role = data.split("|")[1]
+        context.user_data["live_role"] = role
+
+        if role == "Master Control":
+            context.user_data["screen"] = "master_use_password"
+            await show_screen(update, context, "Enter password to use Master Control:")
+            return
+
         context.user_data["screen"] = "live_class"
         await live.select_class(update, context)
         return
@@ -455,7 +598,16 @@ async def handle_callback(update, context):
 
         cls = data.split("|")[1]
         context.user_data["live_class"] = cls
-
+        
+        if role == "Personal Trainer":
+            context.user_data["screen"] = "pt_student_names"
+            await show_screen(
+                update,
+                context,
+                "Enter student name(s).\nYou may type multiple names in one message."
+            )
+            return
+    
         if role == "Private Instructor":
             context.user_data["screen"] = "live_student_name"
             await live.ask_student_name(update, context)
