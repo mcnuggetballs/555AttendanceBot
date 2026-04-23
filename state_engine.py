@@ -28,7 +28,14 @@ async def ask_next_master_field(update, context):
         return
 
     _, prompt = MASTER_FIELDS[index]
-    await show_screen(update, context, prompt)
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(update, context, prompt, keyboard)
 
 
 async def save_master_entry(update, context):
@@ -353,7 +360,17 @@ async def handle_callback(update, context):
     await query.answer()
 
     screen = context.user_data.get("screen")
+    
+    if data == "back" and context.user_data.get("screen") == "master_manual_entry":
 
+        index = context.user_data.get("master_index", 0)
+
+        if index > 0:
+            context.user_data["master_index"] = index - 1
+
+        await ask_next_master_field(update, context)
+        return
+        
     if data == "menu":
         context.user_data["screen"] = "menu"
         await main_menu.show_menu(update, context)
