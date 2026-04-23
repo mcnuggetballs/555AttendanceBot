@@ -371,11 +371,21 @@ async def handle_callback(update, context):
 
         index = context.user_data.get("master_index", 0)
 
-        if index > 0:
-            context.user_data["master_index"] = index - 1
+        # 🚫 If already at first field → do nothing OR go menu
+        if index == 0:
+            await show_screen(
+                update,
+                context,
+                "You are at the first field.",
+                back_menu_keyboard()
+            )
+            return
 
-            field, _ = MASTER_FIELDS[context.user_data["master_index"]]
-            context.user_data["master_data"].pop(field, None)
+        # normal back
+        context.user_data["master_index"] = index - 1
+
+        field, _ = MASTER_FIELDS[context.user_data["master_index"]]
+        context.user_data["master_data"].pop(field, None)
 
         await ask_next_master_field(update, context)
         return
