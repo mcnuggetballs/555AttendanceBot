@@ -49,6 +49,7 @@ async def save_master_entry(update, context):
     )
 
     await show_screen(update, context, "✅ Manual entry recorded.")
+
     verified = context.user_data.get("verified")
     ui_message_id = context.user_data.get("ui_message_id")
 
@@ -57,6 +58,8 @@ async def save_master_entry(update, context):
     context.user_data["verified"] = verified
     context.user_data["ui_message_id"] = ui_message_id
     context.user_data["screen"] = "menu"
+
+    await main_menu.show_menu(update, context)
 
 async def handle_text(update, context):
 
@@ -98,6 +101,8 @@ async def handle_text(update, context):
 
         await show_screen(update, context, "✅ Master Control added.")
         context.user_data["screen"] = "menu"
+
+        await main_menu.show_menu(update, context)
         return
         
     if screen == "master_use_password":
