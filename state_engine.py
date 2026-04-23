@@ -2,6 +2,7 @@ from screens import main_menu, onboarding, live, late, status, manage_classes, e
 from database import get_connection
 from admin_commands import today, who, who_class
 from ui import show_screen
+from telegram import InlineKeyboardButton
 
 MASTER_PASSWORD = "hbgw9unbwobnw"
 
