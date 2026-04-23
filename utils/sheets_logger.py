@@ -40,7 +40,7 @@ def ensure_headers():
         sheet.insert_row(headers, 1)
 
 
-def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
+def log_attendance(name, role, cls, student, venue, status, admin_hours=None, date_override=None, time_override=None):
 
     ensure_headers()
 
@@ -48,6 +48,13 @@ def log_attendance(name, role, cls, student, venue, status, admin_hours=None):
 
     date = now.strftime("%m/%d/%Y")
     time = now.strftime("%H:%M")
+
+    # ✅ OVERRIDE SUPPORT
+    if date_override and date_override != "-":
+        date = date_override
+
+    if time_override and time_override != "-":
+        time = time_override
 
     date = str(date)
     time = str(time)

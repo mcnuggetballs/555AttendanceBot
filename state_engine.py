@@ -43,7 +43,9 @@ async def save_master_entry(update, context):
         data.get("student"),
         data.get("venue"),
         data.get("status"),
-        data.get("hours")
+        data.get("hours"),
+        date_override=data.get("date"),
+        time_override=data.get("time")
     )
 
     await show_screen(update, context, "✅ Manual entry recorded.")
