@@ -17,6 +17,15 @@ MASTER_FIELDS = [
     ("hours", "Enter Hours/Pax:")
 ]
 
+def back_menu_keyboard():
+    from telegram import InlineKeyboardButton
+    return [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
 def log(msg):
     print("[ENGINE]", msg)
     
@@ -28,14 +37,8 @@ async def ask_next_master_field(update, context):
         return
 
     _, prompt = MASTER_FIELDS[index]
-    keyboard = [
-        [
-            InlineKeyboardButton("⬅ Back", callback_data="back"),
-            InlineKeyboardButton("🏠 Menu", callback_data="menu")
-        ]
-    ]
 
-    await show_screen(update, context, prompt, keyboard)
+    await show_screen(update, context, prompt, back_menu_keyboard())
 
 
 async def save_master_entry(update, context):
@@ -90,7 +93,7 @@ async def handle_text(update, context):
     if screen == "master_add_password":
 
         if update.message.text != MASTER_PASSWORD:
-            await show_screen(update, context, "❌ Invalid password. Try again:")
+            await show_screen(update, context, "❌ Invalid password. Try again:", back_menu_keyboard())
             return
 
         role = context.user_data.pop("pending_role")
@@ -106,16 +109,19 @@ async def handle_text(update, context):
         conn.commit()
         conn.close()
 
-        await show_screen(update, context, "✅ Master Control added.")
         context.user_data["screen"] = "menu"
 
-        await main_menu.show_menu(update, context)
+        keyboard = [
+            [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+        ]
+
+        await show_screen(update, context, "✅ Master Control added.", keyboard)
         return
         
     if screen == "master_use_password":
 
         if update.message.text != MASTER_PASSWORD:
-            await show_screen(update, context, "❌ Invalid password. Try again:")
+            await show_screen(update, context, "❌ Invalid password. Try again:", back_menu_keyboard())
             return
 
         context.user_data["screen"] = "master_manual_entry"
@@ -148,7 +154,7 @@ async def handle_text(update, context):
         context.user_data["student_name"] = update.message.text
         context.user_data["screen"] = "pt_student_count"
 
-        await show_screen(update, context, "Enter number of students:")
+        await show_screen(update, context, "Enter number of students:", back_menu_keyboard())
         return
 
 
@@ -156,12 +162,12 @@ async def handle_text(update, context):
         try:
             count = int(update.message.text)
         except:
-            await show_screen(update, context, "❌ Enter a valid number.")
+            await show_screen(update, context, "❌ Enter a valid number.", back_menu_keyboard())
             return
 
         # ✅ ADD THIS HERE
         if count <= 0:
-            await show_screen(update, context, "❌ Enter a valid number greater than 0.")
+            await show_screen(update, context, "❌ Enter a valid number greater than 0.", back_menu_keyboard())
             return
 
         context.user_data["admin_hours"] = count
@@ -367,6 +373,9 @@ async def handle_callback(update, context):
 
         if index > 0:
             context.user_data["master_index"] = index - 1
+
+            field, _ = MASTER_FIELDS[context.user_data["master_index"]]
+            context.user_data["master_data"].pop(field, None)
 
         await ask_next_master_field(update, context)
         return
@@ -608,7 +617,7 @@ async def handle_callback(update, context):
 
         if role == "Master Control":
             context.user_data["screen"] = "master_use_password"
-            await show_screen(update, context, "Enter password to use Master Control:")
+            await show_screen(update, context, "Enter password to use Master Control:", back_menu_keyboard())
             return
 
         context.user_data["screen"] = "live_class"
@@ -628,7 +637,8 @@ async def handle_callback(update, context):
             await show_screen(
                 update,
                 context,
-                "Enter student name(s).\nYou may type multiple names in one message."
+                "Enter student name(s).\nYou may type multiple names in one message.",
+                back_menu_keyboard()
             )
             return
     
