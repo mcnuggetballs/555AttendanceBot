@@ -58,8 +58,7 @@ async def save_master_entry(update, context):
         time_override=data.get("time")
     )
 
-    await show_screen(update, context, "✅ Manual entry recorded.")
-
+    # ✅ keep state BEFORE clearing
     verified = context.user_data.get("verified")
     ui_message_id = context.user_data.get("ui_message_id")
 
@@ -69,7 +68,12 @@ async def save_master_entry(update, context):
     context.user_data["ui_message_id"] = ui_message_id
     context.user_data["screen"] = "menu"
 
-    await main_menu.show_menu(update, context)
+    # ✅ show confirmation screen with ONLY menu button
+    keyboard = [
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
+
+    await show_screen(update, context, "✅ Manual entry recorded.", keyboard)
 
 async def handle_text(update, context):
 
