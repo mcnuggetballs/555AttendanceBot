@@ -10,9 +10,12 @@ from database import init_db, get_connection
 from state_engine import handle_text, handle_callback, handle_location
 from screens import main_menu
 from ui import show_screen
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
-BOT_TOKEN = "8495877260:AAEKSGfSn9_imFhEFTdSdNtit_XY18OGoDA"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 BOT_PASSWORD = "wearerising555!"
 
 
