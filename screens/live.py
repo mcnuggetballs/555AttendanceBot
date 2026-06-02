@@ -217,6 +217,7 @@ async def save_live_location(update, context):
     role = context.user_data.get("live_role")
     cls = context.user_data.get("live_class")
     student = context.user_data.get("student_name")
+    school_location = context.user_data.get("school_location")
     admin_hours = context.user_data.get("admin_hours")
 
     conn = get_connection()
@@ -253,21 +254,33 @@ async def save_live_location(update, context):
 
     venue_name, venue_lat, venue_lng = c.fetchone()
 
-    dist = distance_m(user_lat, user_lon, venue_lat, venue_lng)
+    # AEP Performer does not use fixed venue coordinates
+    if role == "AEP Performer":
 
-    if dist > ATTENDANCE_RADIUS:
+        venue_name = school_location
 
-        keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+    else:
 
-        await show_screen(
-            update,
-            context,
-            "⚠ You are too far from the venue.",
-            keyboard
+        dist = distance_m(
+            user_lat,
+            user_lon,
+            venue_lat,
+            venue_lng
         )
 
-        conn.close()
-        return
+        if dist > ATTENDANCE_RADIUS:
+
+            keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
+
+            await show_screen(
+                update,
+                context,
+                "⚠ You are too far from the venue.",
+                keyboard
+            )
+
+            conn.close()
+            return
 
     timestamp = datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d %H:%M")
 
@@ -336,4 +349,19 @@ async def save_live_location(update, context):
     context.user_data.pop("live_role", None)
     context.user_data.pop("live_class", None)
     context.user_data.pop("student_name", None)
+    context.user_data.pop("school_location", None)
     context.user_data.pop("admin_hours", None)
+
+async def ask_school_location(update, context):
+
+    keyboard = [
+        [InlineKeyboardButton("⬅ Back", callback_data="menu_live")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+    ]
+
+    await show_screen(
+        update,
+        context,
+        "Enter school location:",
+        keyboard
+    )

@@ -210,7 +210,18 @@ async def handle_text(update, context):
     # ✅ ADDED: LIVE SCHOOL NAME (AEP)
     if screen == "live_school_name":
         context.user_data["student_name"] = update.message.text
+
+        context.user_data["screen"] = "live_school_location"
+
+        await live.ask_school_location(update, context)
+        return
+
+
+    if screen == "live_school_location":
+        context.user_data["school_location"] = update.message.text
+
         context.user_data["screen"] = "live_location"
+
         await live.request_location(update, context)
         return
 

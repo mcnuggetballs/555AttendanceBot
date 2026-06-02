@@ -10,8 +10,8 @@ ROLES = [
     "Admin",
     "Student Mentor",
     "AEP Performer",
-    "Personal Trainer"   # ✅ ADDED
-    # ❌ DO NOT ADD Master Control HERE
+    "Loopstation Instructor",
+    "Personal Trainer"
 ]
 
 
