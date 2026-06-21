@@ -2,6 +2,12 @@ from telegram import InlineKeyboardButton
 from database import get_connection
 from ui import show_screen
 from screens.onboarding import ROLES
+from firestore_users import (
+    get_user,
+    update_name,
+    update_dob,
+    update_notes
+)
 
 
 MASTER_PASSWORD = "hbgw9unbwobnw"
@@ -11,20 +17,9 @@ async def show_profile(update, context):
 
     user_id = update.effective_user.id
 
-    conn = get_connection()
-    c = conn.cursor()
+    user = get_user(user_id)
 
-    c.execute("""
-    SELECT name, dob, notes
-    FROM users
-    WHERE telegram_user_id=?
-    """, (user_id,))
-
-    row = c.fetchone()
-
-    if not row:
-
-        conn.close()
+    if not user:
 
         keyboard = [
             [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
@@ -38,7 +33,12 @@ async def show_profile(update, context):
         )
         return
 
-    name, dob, notes = row
+    conn = get_connection()
+    c = conn.cursor()
+
+    name = user.get("name", "")
+    dob = user.get("dob", "")
+    notes = user.get("notes", "")
 
     if not notes:
         notes = "None"
@@ -118,17 +118,10 @@ async def save_name(update, context):
 
     new_name = update.message.text
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    UPDATE users
-    SET name=?
-    WHERE telegram_user_id=?
-    """, (new_name, update.effective_user.id))
-
-    conn.commit()
-    conn.close()
+    update_name(
+        update.effective_user.id,
+        new_name
+    )
 
     await show_profile(update, context)
 
@@ -153,17 +146,10 @@ async def save_dob(update, context):
 
     dob = update.message.text
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    UPDATE users
-    SET dob=?
-    WHERE telegram_user_id=?
-    """, (dob, update.effective_user.id))
-
-    conn.commit()
-    conn.close()
+    update_dob(
+        update.effective_user.id,
+        dob
+    )
 
     await show_profile(update, context)
 
@@ -196,17 +182,10 @@ async def save_notes(update, context):
     if notes.lower() == "skip":
         notes = ""
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    UPDATE users
-    SET notes=?
-    WHERE telegram_user_id=?
-    """, (notes, update.effective_user.id))
-
-    conn.commit()
-    conn.close()
+    update_notes(
+        update.effective_user.id,
+        notes
+    )
 
     await show_profile(update, context)
 

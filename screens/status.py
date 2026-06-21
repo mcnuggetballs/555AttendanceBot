@@ -2,22 +2,17 @@ from database import get_connection
 from ui import show_screen
 from telegram import InlineKeyboardButton
 from keyboards import menu_keyboard
+from firestore_users import get_user
 
 
 async def show_status(update, context):
 
     user_id = update.effective_user.id
 
+    user = get_user(user_id)
+
     conn = get_connection()
     c = conn.cursor()
-
-    c.execute("""
-    SELECT name
-    FROM users
-    WHERE telegram_user_id=?
-    """, (user_id,))
-
-    user = c.fetchone()
 
     if not user:
 
@@ -31,7 +26,7 @@ async def show_status(update, context):
         conn.close()
         return
 
-    name = user[0]
+    name = user["name"]
 
     text = f"ACCOUNT STATUS\n\nName: {name}\n\nRoles:\n"
 

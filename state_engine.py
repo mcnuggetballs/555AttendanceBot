@@ -319,7 +319,8 @@ async def handle_text(update, context):
 
     elif next_screen == "onboarding_class_code":
         await onboarding.ask_class_code(update, context)
-
+    elif next_screen == "onboarding_location":
+        await onboarding.ask_location(update, context)
     elif next_screen == "onboarding_venue":
         await onboarding.ask_venue_name(update, context)
 
@@ -504,21 +505,24 @@ async def handle_callback(update, context):
 
     if data == "create_account":
 
+        from firestore_users import get_user
+
         user_id = update.effective_user.id
 
-        conn = get_connection()
-        c = conn.cursor()
+        user = get_user(user_id)
 
-        c.execute(
-            "SELECT name FROM users WHERE telegram_user_id=?",
-            (user_id,)
-        )
+        if user and user.get("name"):
 
-        row = c.fetchone()
+            keyboard = [
+                [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
+            ]
 
-        conn.close()
-
-        if row and row[0] is not None:
+            await show_screen(
+                update,
+                context,
+                "✅ Account already exists.",
+                keyboard
+            )
             return
 
         context.user_data["screen"] = "onboarding_name"

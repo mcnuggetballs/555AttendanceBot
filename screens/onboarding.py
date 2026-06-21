@@ -1,6 +1,7 @@
 from telegram import InlineKeyboardButton
 from database import get_connection
 from ui import show_screen
+from firestore_users import save_user
 
 
 ROLES = [
@@ -170,24 +171,45 @@ async def ask_class_code(update, context):
 
 
 async def save_class_code(update, context):
+    
+    print("SAVE_CLASS_CODE CALLED")
 
     class_code = update.message.text.strip()
 
     context.user_data["current_class"] = class_code
 
-    keyboard = [
-        [
-            InlineKeyboardButton("⬅ Back", callback_data="back"),
-            InlineKeyboardButton("🏠 Menu", callback_data="menu")
-        ]
-    ]
+    role_index = context.user_data["role_index"]
+    role = context.user_data["roles"][role_index]
 
-    await show_screen(
-        update,
-        context,
-        "Send venue location.\n(Use Telegram's Send Location feature)\n\nDo NOT type the venue name here.",
-        keyboard
-    )
+    # AEP Performer skips location setup
+    if role == "AEP Performer":
+
+        class_data = {
+            "class_code": class_code,
+            "venue_name": "",
+            "venue_lat": None,
+            "venue_lng": None
+        }
+
+        context.user_data["role_classes"].setdefault(role, []).append(class_data)
+
+        keyboard = [
+            [
+                InlineKeyboardButton("Yes", callback_data="add_class_yes"),
+                InlineKeyboardButton("No", callback_data="add_class_no")
+            ]
+        ]
+
+        context.user_data["screen"] = "onboarding_add_class"
+
+        await show_screen(
+            update,
+            context,
+            f"Add another class code for {role}?",
+            keyboard
+        )
+
+        return None
 
     return "onboarding_location"
 
@@ -275,21 +297,13 @@ async def finish_onboarding(update, context):
 
     user_id = update.effective_user.id
 
-    c.execute("""
-    INSERT INTO users
-    (telegram_user_id, name, dob, notes, verified)
-    VALUES (?,?,?,?,1)
-    ON CONFLICT(telegram_user_id)
-    DO UPDATE SET
-        name=excluded.name,
-        dob=excluded.dob,
-        notes=excluded.notes
-    """, (
+    save_user(
         user_id,
         context.user_data["name"],
         context.user_data["dob"],
-        context.user_data["notes"]
-    ))
+        context.user_data["notes"],
+        1
+    )
 
     role_ids = {}
 
@@ -344,3 +358,21 @@ async def finish_onboarding(update, context):
     )
 
     return None
+
+async def ask_location(update, context):
+
+    context.user_data["screen"] = "onboarding_location"
+
+    keyboard = [
+        [
+            InlineKeyboardButton("⬅ Back", callback_data="back"),
+            InlineKeyboardButton("🏠 Menu", callback_data="menu")
+        ]
+    ]
+
+    await show_screen(
+        update,
+        context,
+        "Send venue location:",
+        keyboard
+    )

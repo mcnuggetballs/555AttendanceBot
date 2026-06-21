@@ -1,26 +1,17 @@
 from telegram import InlineKeyboardButton
 from database import get_connection
 from ui import show_screen
+from firestore_users import get_user
 
 
 async def start(update, context):
 
     user_id = update.effective_user.id
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute(
-        "SELECT name FROM users WHERE telegram_user_id=?",
-        (user_id,)
-    )
-
-    row = c.fetchone()
-
-    conn.close()
+    user = get_user(user_id)
 
     # If account not created
-    if not row or row[0] is None:
+    if not user:
 
         keyboard = [
             [InlineKeyboardButton("🏠 Menu", callback_data="menu")]

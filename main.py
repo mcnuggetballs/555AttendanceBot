@@ -12,6 +12,7 @@ from screens import main_menu
 from ui import show_screen
 import os
 from dotenv import load_dotenv
+from firestore_users import get_user, save_user
 
 load_dotenv()
 
@@ -23,19 +24,9 @@ async def start(update, context):
 
     user_id = update.effective_user.id
 
-    conn = get_connection()
-    c = conn.cursor()
+    user = get_user(user_id)
 
-    c.execute(
-        "SELECT verified FROM users WHERE telegram_user_id=?",
-        (user_id,)
-    )
-
-    row = c.fetchone()
-
-    conn.close()
-
-    if row and row[0] == 1:
+    if user and user.get("verified") == 1:
 
         context.user_data["verified"] = True
         context.user_data["screen"] = "menu"
@@ -88,21 +79,15 @@ async def text_router(update, context):
 
         user_id = update.effective_user.id
 
-        conn = get_connection()
-        c = conn.cursor()
+        existing = get_user(user_id)
 
-        c.execute(
-            """
-            INSERT INTO users (telegram_user_id, verified)
-            VALUES (?,1)
-            ON CONFLICT(telegram_user_id)
-            DO UPDATE SET verified=1
-            """,
-            (user_id,)
+        save_user(
+            user_id,
+            existing.get("name") if existing else "",
+            existing.get("dob") if existing else "",
+            existing.get("notes") if existing else "",
+            1
         )
-
-        conn.commit()
-        conn.close()
 
         context.user_data["verified"] = True
         context.user_data["screen"] = "menu"
