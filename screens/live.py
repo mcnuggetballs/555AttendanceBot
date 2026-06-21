@@ -1,10 +1,13 @@
 from telegram import InlineKeyboardButton
-from database import get_connection
 from utils.sheets_logger import log_attendance
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import math
 from ui import show_screen
+from firestore_roles import get_roles
+from firestore_classes import get_classes_for_role
+from firestore_users import get_user
+from firestore_attendance import attendance_exists, add_attendance
 
 
 ADMIN_GROUP_ID = -1003584358970
@@ -81,18 +84,7 @@ async def start_live(update, context):
 
     user_id = update.effective_user.id
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (user_id,))
-
-    roles = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    roles = get_roles(user_id)
 
     keyboard = []
 
@@ -111,21 +103,12 @@ async def select_class(update, context):
 
     context.user_data["live_role"] = role
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT class_code
-    FROM class_codes
-    WHERE role_id IN (
-        SELECT id FROM user_roles
-        WHERE telegram_user_id=? AND role_name=?
+    classes = get_classes_for_role(
+        update.effective_user.id,
+        role
     )
-    """, (update.effective_user.id, role))
 
-    classes = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    classes = [c["class_code"] for c in classes]
 
     keyboard = []
 
@@ -220,19 +203,13 @@ async def save_live_location(update, context):
     school_location = context.user_data.get("school_location")
     admin_hours = context.user_data.get("admin_hours")
 
-    conn = get_connection()
-    c = conn.cursor()
-
     today = datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d")
 
-    c.execute("""
-    SELECT id
-    FROM attendance_logs
-    WHERE telegram_user_id=? AND class_code=? AND date=?
-    """, (update.effective_user.id, cls, today))
-
-    if c.fetchone():
-
+    if attendance_exists(
+        update.effective_user.id,
+        cls,
+        today
+    ):
         keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
         await show_screen(
@@ -242,17 +219,21 @@ async def save_live_location(update, context):
             keyboard
         )
 
-        conn.close()
         return
 
-    c.execute("""
-    SELECT venue_name, venue_lat, venue_lng
-    FROM class_codes
-    JOIN user_roles ON class_codes.role_id = user_roles.id
-    WHERE user_roles.telegram_user_id=? AND user_roles.role_name=? AND class_codes.class_code=?
-    """, (update.effective_user.id, role, cls))
+    classes = get_classes_for_role(
+        update.effective_user.id,
+        role
+    )
 
-    venue_name, venue_lat, venue_lng = c.fetchone()
+    class_info = next(
+        c for c in classes
+        if c["class_code"] == cls
+    )
+
+    venue_name = class_info["venue_name"]
+    venue_lat = class_info["venue_lat"]
+    venue_lng = class_info["venue_lng"]
 
     # AEP Performer does not use fixed venue coordinates
     if role == "AEP Performer":
@@ -279,16 +260,11 @@ async def save_live_location(update, context):
                 keyboard
             )
 
-            conn.close()
             return
 
     timestamp = datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d %H:%M")
 
-    c.execute("""
-    INSERT INTO attendance_logs
-    (telegram_user_id, role_name, class_code, student_name, latitude, longitude, admin_hours, date, timestamp)
-    VALUES (?,?,?,?,?,?,?,?,?)
-    """, (
+    add_attendance(
         update.effective_user.id,
         role,
         cls,
@@ -298,14 +274,10 @@ async def save_live_location(update, context):
         admin_hours,
         today,
         timestamp
-    ))
+    )
 
-    conn.commit()
-
-    c.execute("SELECT name FROM users WHERE telegram_user_id=?", (update.effective_user.id,))
-    name = c.fetchone()[0]
-
-    conn.close()
+    user = get_user(update.effective_user.id)
+    name = user["name"]
 
     keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 

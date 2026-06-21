@@ -1,19 +1,11 @@
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.auth import default
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 SHEET_NAME = "Attendance Logs"
 
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
-]
-
-creds = ServiceAccountCredentials.from_json_keyfile_name(
-    "service_account.json",
-    scope
-)
+creds, _ = default()
 
 client = gspread.authorize(creds)
 

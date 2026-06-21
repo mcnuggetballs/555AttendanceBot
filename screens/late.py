@@ -1,5 +1,12 @@
 from telegram import InlineKeyboardButton
-from database import get_connection
+from firestore_roles import get_roles
+from firestore_classes import get_classes_for_role
+from firestore_users import get_user
+from firestore_attendance import attendance_exists
+from firestore_late_reports import (
+    late_report_exists,
+    add_late_report
+)
 from utils.sheets_logger import log_attendance
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -21,18 +28,9 @@ ROLE_TOPICS = {
 
 async def start_late(update, context):
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
-
-    roles = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    roles = get_roles(
+        update.effective_user.id
+    )
 
     keyboard = []
 
@@ -49,21 +47,12 @@ async def select_class(update, context):
     role = update.callback_query.data.split("|")[1]
     context.user_data["late_role"] = role
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT class_code
-    FROM class_codes
-    WHERE role_id IN (
-        SELECT id FROM user_roles
-        WHERE telegram_user_id=? AND role_name=?
+    classes = get_classes_for_role(
+        update.effective_user.id,
+        role
     )
-    """, (update.effective_user.id, role))
 
-    classes = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    classes = [c["class_code"] for c in classes]
 
     keyboard = []
 
@@ -113,19 +102,13 @@ async def save_eta(update, context):
 
     student = context.user_data.get("student_name")
 
-    conn = get_connection()
-    c = conn.cursor()
-
     today = datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d")
 
-    # BLOCK IF ALREADY PRESENT
-    c.execute("""
-    SELECT id
-    FROM attendance_logs
-    WHERE telegram_user_id=? AND class_code=? AND date=?
-    """, (update.effective_user.id, cls, today))
-
-    if c.fetchone():
+    if attendance_exists(
+        update.effective_user.id,
+        cls,
+        today
+    ):
 
         keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
@@ -136,18 +119,14 @@ async def save_eta(update, context):
             keyboard
         )
 
-        conn.close()
         return
 
 
-    # BLOCK DUPLICATE LATE REPORT
-    c.execute("""
-    SELECT id
-    FROM late_reports
-    WHERE telegram_user_id=? AND class_code=? AND date=?
-    """, (update.effective_user.id, cls, today))
-
-    if c.fetchone():
+    if late_report_exists(
+        update.effective_user.id,
+        cls,
+        today
+    ):
 
         keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
@@ -158,42 +137,37 @@ async def save_eta(update, context):
             keyboard
         )
 
-        conn.close()
         return
 
 
-    # GET VENUE
-    c.execute("""
-    SELECT venue_name
-    FROM class_codes
-    JOIN user_roles ON class_codes.role_id = user_roles.id
-    WHERE user_roles.telegram_user_id=? AND user_roles.role_name=? AND class_codes.class_code=?
-    """, (update.effective_user.id, role, cls))
+    classes = get_classes_for_role(
+        update.effective_user.id,
+        role
+    )
 
-    venue_row = c.fetchone()
-    venue_name = venue_row[0] if venue_row else "Unknown Venue"
+    class_info = next(
+        c for c in classes
+        if c["class_code"] == cls
+    )
 
+    venue_name = class_info.get(
+        "venue_name",
+        "Unknown Venue"
+    )
 
     # GET NAME
-    c.execute("""
-    SELECT name
-    FROM users
-    WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
+    user = get_user(
+        update.effective_user.id
+    )
 
-    name_row = c.fetchone()
-    name = name_row[0] if name_row else "Unknown"
-
+    name = user.get(
+        "name",
+        "Unknown"
+    )
 
     timestamp = datetime.now(ZoneInfo("Asia/Singapore")).strftime("%Y-%m-%d %H:%M")
 
-
-    # SAVE LATE REPORT
-    c.execute("""
-    INSERT INTO late_reports
-    (telegram_user_id, role_name, class_code, student_name, eta, date, timestamp)
-    VALUES (?,?,?,?,?,?,?)
-    """, (
+    add_late_report(
         update.effective_user.id,
         role,
         cls,
@@ -201,11 +175,7 @@ async def save_eta(update, context):
         eta,
         today,
         timestamp
-    ))
-
-    conn.commit()
-    conn.close()
-
+    )
 
     keyboard = [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
 
@@ -221,21 +191,21 @@ async def save_eta(update, context):
 
 
     log_message = f"""
-LATE REPORT
+    LATE REPORT
 
-Name: {name}
-Role: {role}
-Class: {cls}
-"""
+    Name: {name}
+    Role: {role}
+    Class: {cls}
+    """
 
     if student:
         log_message += f"Student: {student}\n"
 
     log_message += f"""Venue: {venue_name}
-Status: Late
-ETA: {eta}
-Time: {timestamp}
-"""
+    Status: Late
+    ETA: {eta}
+    Time: {timestamp}
+    """
 
     topic_id = ROLE_TOPICS.get(role)
 

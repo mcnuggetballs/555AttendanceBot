@@ -1,7 +1,8 @@
 from telegram import InlineKeyboardButton
-from database import get_connection
 from ui import show_screen
 from firestore_users import save_user
+from firestore_roles import add_role
+from firestore_classes import add_class
 
 
 ROLES = [
@@ -171,7 +172,7 @@ async def ask_class_code(update, context):
 
 
 async def save_class_code(update, context):
-    
+
     print("SAVE_CLASS_CODE CALLED")
 
     class_code = update.message.text.strip()
@@ -291,10 +292,6 @@ async def next_role(update, context):
 
 
 async def finish_onboarding(update, context):
-
-    conn = get_connection()
-    c = conn.cursor()
-
     user_id = update.effective_user.id
 
     save_user(
@@ -305,37 +302,21 @@ async def finish_onboarding(update, context):
         1
     )
 
-    role_ids = {}
-
     for role in context.user_data["roles"]:
-
-        c.execute("""
-        INSERT INTO user_roles (telegram_user_id, role_name)
-        VALUES (?,?)
-        """, (user_id, role))
-
-        role_ids[role] = c.lastrowid
+        add_role(user_id, role)
 
     for role, classes in context.user_data["role_classes"].items():
 
-        role_id = role_ids[role]
-
         for cls in classes:
 
-            c.execute("""
-            INSERT INTO class_codes
-            (role_id, class_code, venue_name, venue_lat, venue_lng)
-            VALUES (?,?,?,?,?)
-            """, (
-                role_id,
+            add_class(
+                user_id,
+                role,
                 cls["class_code"],
                 cls["venue_name"],
                 cls["venue_lat"],
                 cls["venue_lng"]
-            ))
-
-    conn.commit()
-    conn.close()
+            )
 
     verified = context.user_data.get("verified")
     ui_message_id = context.user_data.get("ui_message_id")

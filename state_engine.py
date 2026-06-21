@@ -1,8 +1,8 @@
 from screens import main_menu, onboarding, live, late, status, manage_classes, edit_profile
-from database import get_connection
 from admin_commands import today, who, who_class
 from ui import show_screen
 from telegram import InlineKeyboardButton
+from firestore_roles import add_role as add_firestore_role
 
 MASTER_PASSWORD = "hbgw9unbwobnw"
 
@@ -103,16 +103,10 @@ async def handle_text(update, context):
 
         role = context.user_data.pop("pending_role")
 
-        conn = get_connection()
-        c = conn.cursor()
-
-        c.execute("""
-        INSERT INTO user_roles (telegram_user_id, role_name)
-        VALUES (?,?)
-        """, (update.effective_user.id, role))
-
-        conn.commit()
-        conn.close()
+        add_firestore_role(
+            update.effective_user.id,
+            role
+        )
 
         context.user_data["screen"] = "menu"
 

@@ -1,36 +1,29 @@
 from telegram import InlineKeyboardButton
 from ui import show_screen
-from database import get_connection
 from keyboards import menu_keyboard
-import sqlite3
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from firestore_reports import (
+    get_today_attendance,
+    get_today_late_reports,
+    get_attendance_for_class,
+    get_late_for_class
+)
+
+from firestore_classes import get_classes
+from firestore_users import get_user
+from firestore_db import db
 
 
 async def today(update, context):
 
-    conn = get_connection()
-    c = conn.cursor()
+    today_date = datetime.now(
+        ZoneInfo("Asia/Singapore")
+    ).strftime("%Y-%m-%d")
 
-    c.execute("""
-    SELECT users.name, attendance_logs.role_name, attendance_logs.class_code
-    FROM attendance_logs
-    JOIN users
-    ON attendance_logs.telegram_user_id = users.telegram_user_id
-    WHERE date = date('now')
-    """)
-
-    present = c.fetchall()
-
-    c.execute("""
-    SELECT users.name, late_reports.role_name, late_reports.class_code
-    FROM late_reports
-    JOIN users
-    ON late_reports.telegram_user_id = users.telegram_user_id
-    WHERE date = date('now')
-    """)
-
-    late = c.fetchall()
-
-    conn.close()
+    present = get_today_attendance(today_date)
+    late = get_today_late_reports(today_date)
 
     if not present and not late:
 
@@ -44,29 +37,40 @@ async def today(update, context):
 
     message = "📋 TODAY'S ATTENDANCE\n\n"
 
-    for name, role, cls in present:
-        message += f"{name} — {role} — {cls} — ✅ Present\n"
+    for row in present:
+        message += (
+            f"{row['name']} — "
+            f"{row['role']} — "
+            f"{row['class_code']} — ✅ Present\n"
+        )
 
-    for name, role, cls in late:
-        message += f"{name} — {role} — {cls} — ⏰ Late\n"
+    for row in late:
+        message += (
+            f"{row['name']} — "
+            f"{row['role']} — "
+            f"{row['class_code']} — ⏰ Late\n"
+        )
 
-    await show_screen(update, context, message, menu_keyboard())
+    await show_screen(
+        update,
+        context,
+        message,
+        menu_keyboard()
+    )
 
 
 async def who(update, context):
+    docs = (
+        db.collection_group("classes")
+        .stream()
+    )
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT DISTINCT class_code
-    FROM class_codes
-    ORDER BY class_code
-    """)
-
-    classes = [row[0] for row in c.fetchall()]
-
-    conn.close()
+    classes = sorted(
+        list({
+            doc.to_dict()["class_code"]
+            for doc in docs
+        })
+    )
 
     keyboard = []
 
@@ -83,30 +87,19 @@ async def who_class(update, context):
     query = update.callback_query
     cls = query.data.split("|")[1]
 
-    conn = get_connection()
-    c = conn.cursor()
+    today_date = datetime.now(
+        ZoneInfo("Asia/Singapore")
+    ).strftime("%Y-%m-%d")
 
-    c.execute("""
-    SELECT users.name
-    FROM attendance_logs
-    JOIN users
-    ON attendance_logs.telegram_user_id = users.telegram_user_id
-    WHERE class_code=? AND date = date('now')
-    """, (cls,))
+    present = get_attendance_for_class(
+        cls,
+        today_date
+    )
 
-    present = c.fetchall()
-
-    c.execute("""
-    SELECT users.name
-    FROM late_reports
-    JOIN users
-    ON late_reports.telegram_user_id = users.telegram_user_id
-    WHERE class_code=? AND date = date('now')
-    """, (cls,))
-
-    late = c.fetchall()
-
-    conn.close()
+    late = get_late_for_class(
+        cls,
+        today_date
+    )
 
     if not present and not late:
 
@@ -120,15 +113,20 @@ async def who_class(update, context):
 
     text = f"ATTENDANCE FOR {cls}\n\n"
 
-    for (name,) in present:
-        text += f"{name} — Present\n"
+    for row in present:
+        text += f"{row['name']} — Present\n"
 
-    for (name,) in late:
-        text += f"{name} — Late\n"
+    for row in late:
+        text += f"{row['name']} — Late\n"
 
     keyboard = [
         [InlineKeyboardButton("⬅ Back", callback_data="menu_who")],
         [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
     ]
 
-    await show_screen(update, context, text, keyboard)
+    await show_screen(
+        update,
+        context,
+        text,
+        keyboard
+    )

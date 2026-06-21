@@ -1,7 +1,12 @@
 from telegram import InlineKeyboardButton
-from database import get_connection
 from ui import show_screen
 from firestore_users import get_user
+from firestore_roles import get_roles
+from firestore_classes import (
+    add_class,
+    get_classes_for_role,
+    delete_class as delete_firestore_class
+)
 
 
 async def start(update, context):
@@ -50,18 +55,7 @@ async def start(update, context):
 
 async def select_role(update, context):
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
-
-    roles = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    roles = get_roles(update.effective_user.id)
 
     keyboard = []
 
@@ -146,42 +140,17 @@ async def save_new_class(update, context):
     venue_lat = context.user_data.get("venue_lat")
     venue_lng = context.user_data.get("venue_lng")
 
-    conn = get_connection()
-    c = conn.cursor()
+    existing_classes = get_classes_for_role(
+        update.effective_user.id,
+        role
+    )
 
-    # Get role id
-    c.execute("""
-    SELECT id
-    FROM user_roles
-    WHERE telegram_user_id=? AND role_name=?
-    """, (update.effective_user.id, role))
+    duplicate = any(
+        c["class_code"] == class_code
+        for c in existing_classes
+    )
 
-    role_row = c.fetchone()
-
-    if not role_row:
-
-        conn.close()
-
-        await show_screen(
-            update,
-            context,
-            "Role not found.",
-            [[InlineKeyboardButton("🏠 Menu", callback_data="menu")]]
-        )
-        return
-
-    role_id = role_row[0]
-
-    # Check duplicate
-    c.execute("""
-    SELECT id
-    FROM class_codes
-    WHERE role_id=? AND class_code=?
-    """, (role_id, class_code))
-
-    if c.fetchone():
-
-        conn.close()
+    if duplicate:
 
         await show_screen(
             update,
@@ -191,21 +160,14 @@ async def save_new_class(update, context):
         )
         return
 
-    # Insert class
-    c.execute("""
-    INSERT INTO class_codes
-    (role_id, class_code, venue_name, venue_lat, venue_lng)
-    VALUES (?,?,?,?,?)
-    """, (
-        role_id,
+    add_class(
+        update.effective_user.id,
+        role,
         class_code,
         venue_name,
         venue_lat,
         venue_lng
-    ))
-
-    conn.commit()
-    conn.close()
+    )
 
     keyboard = [
         [InlineKeyboardButton("🏠 Menu", callback_data="menu")]
@@ -225,18 +187,7 @@ async def save_new_class(update, context):
 
 async def select_role_delete(update, context):
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
-
-    roles = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    roles = get_roles(update.effective_user.id)
 
     keyboard = []
 
@@ -258,21 +209,12 @@ async def select_class_delete(update, context):
     role = update.callback_query.data.split("|")[1]
     context.user_data["manage_role"] = role
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT class_code
-    FROM class_codes
-    WHERE role_id IN (
-        SELECT id FROM user_roles
-        WHERE telegram_user_id=? AND role_name=?
+    classes = get_classes_for_role(
+        update.effective_user.id,
+        role
     )
-    """, (update.effective_user.id, role))
 
-    classes = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    classes = [c["class_code"] for c in classes]
 
     keyboard = []
 
@@ -294,20 +236,20 @@ async def delete_class(update, context):
     cls = update.callback_query.data.split("|")[1]
     role = context.user_data.get("manage_role")
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    DELETE FROM class_codes
-    WHERE class_code=?
-    AND role_id IN (
-        SELECT id FROM user_roles
-        WHERE telegram_user_id=? AND role_name=?
+    classes = get_classes_for_role(
+        update.effective_user.id,
+        role
     )
-    """, (cls, update.effective_user.id, role))
 
-    conn.commit()
-    conn.close()
+    class_to_delete = next(
+        c for c in classes
+        if c["class_code"] == cls
+    )
+
+    delete_firestore_class(
+        update.effective_user.id,
+        class_to_delete["id"]
+    )
 
     keyboard = [
         [InlineKeyboardButton("🏠 Menu", callback_data="menu")]

@@ -1,5 +1,4 @@
 from telegram import InlineKeyboardButton
-from database import get_connection
 from ui import show_screen
 from screens.onboarding import ROLES
 from firestore_users import (
@@ -7,6 +6,18 @@ from firestore_users import (
     update_name,
     update_dob,
     update_notes
+)
+
+from firestore_roles import (
+    get_roles,
+    add_role as add_firestore_role,
+    remove_role as remove_firestore_role
+)
+
+from firestore_classes import (
+    get_classes_for_role,
+    get_classes,
+    delete_class as delete_firestore_class
 )
 
 
@@ -33,9 +44,6 @@ async def show_profile(update, context):
         )
         return
 
-    conn = get_connection()
-    c = conn.cursor()
-
     name = user.get("name", "")
     dob = user.get("dob", "")
     notes = user.get("notes", "")
@@ -43,32 +51,27 @@ async def show_profile(update, context):
     if not notes:
         notes = "None"
 
-    c.execute("""
-    SELECT id, role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (user_id,))
-
-    roles = c.fetchall()
+    roles = get_roles(user_id)
 
     role_text = ""
 
-    for role_id, role_name in roles:
+    for role_name in roles:
 
         role_text += f"\n• {role_name}\n"
 
-        c.execute("""
-        SELECT class_code, venue_name
-        FROM class_codes
-        WHERE role_id=?
-        """, (role_id,))
+        classes = get_classes_for_role(
+            user_id,
+            role_name
+        )
 
-        classes = c.fetchall()
+        for cls in classes:
 
-        for cls, venue in classes:
-            role_text += f"    - {cls} ({venue})\n"
+            venue = cls.get("venue_name", "")
 
-    conn.close()
+            role_text += (
+                f"    - {cls['class_code']} "
+                f"({venue})\n"
+            )
 
     if not role_text:
         role_text = "None"
@@ -214,18 +217,9 @@ async def edit_roles_menu(update, context):
 
 async def add_role_menu(update, context):
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
-
-    existing = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    existing = get_roles(
+        update.effective_user.id
+    )
 
     keyboard = []
 
@@ -256,17 +250,10 @@ async def add_role(update, context):
         await show_screen(update, context, "Enter Master Control password:")
         return
 
-    # NORMAL ROLE INSERT
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    INSERT INTO user_roles (telegram_user_id, role_name)
-    VALUES (?,?)
-    """, (update.effective_user.id, role))
-
-    conn.commit()
-    conn.close()
+    add_firestore_role(
+        update.effective_user.id,
+        role
+    )
 
     await show_profile(update, context)
 
@@ -277,18 +264,9 @@ async def add_role(update, context):
 
 async def remove_role_menu(update, context):
 
-    conn = get_connection()
-    c = conn.cursor()
-
-    c.execute("""
-    SELECT role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (update.effective_user.id,))
-
-    roles = [r[0] for r in c.fetchall()]
-
-    conn.close()
+    roles = get_roles(
+        update.effective_user.id
+    )
 
     keyboard = []
 
@@ -308,28 +286,21 @@ async def remove_role(update, context):
 
     role = update.callback_query.data.split("|")[1]
 
-    conn = get_connection()
-    c = conn.cursor()
+    classes = get_classes_for_role(
+        update.effective_user.id,
+        role
+    )
 
-    c.execute("""
-    SELECT id
-    FROM user_roles
-    WHERE telegram_user_id=? AND role_name=?
-    """, (update.effective_user.id, role))
+    for cls in classes:
 
-    role_id = c.fetchone()[0]
+        delete_firestore_class(
+            update.effective_user.id,
+            cls["id"]
+        )
 
-    c.execute("""
-    DELETE FROM class_codes
-    WHERE role_id=?
-    """, (role_id,))
-
-    c.execute("""
-    DELETE FROM user_roles
-    WHERE id=?
-    """, (role_id,))
-
-    conn.commit()
-    conn.close()
+    remove_firestore_role(
+        update.effective_user.id,
+        role
+    )
 
     await show_profile(update, context)

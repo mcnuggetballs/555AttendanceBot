@@ -1,8 +1,8 @@
-from database import get_connection
 from ui import show_screen
-from telegram import InlineKeyboardButton
 from keyboards import menu_keyboard
 from firestore_users import get_user
+from firestore_roles import get_roles
+from firestore_classes import get_classes_for_role
 
 
 async def show_status(update, context):
@@ -10,9 +10,6 @@ async def show_status(update, context):
     user_id = update.effective_user.id
 
     user = get_user(user_id)
-
-    conn = get_connection()
-    c = conn.cursor()
 
     if not user:
 
@@ -23,36 +20,30 @@ async def show_status(update, context):
             menu_keyboard()
         )
 
-        conn.close()
         return
 
     name = user["name"]
 
     text = f"ACCOUNT STATUS\n\nName: {name}\n\nRoles:\n"
 
-    c.execute("""
-    SELECT id, role_name
-    FROM user_roles
-    WHERE telegram_user_id=?
-    """, (user_id,))
+    roles = get_roles(user_id)
 
-    roles = c.fetchall()
-
-    for role_id, role_name in roles:
+    for role_name in roles:
 
         text += f"\n• {role_name}\n"
 
-        c.execute("""
-        SELECT class_code, venue_name
-        FROM class_codes
-        WHERE role_id=?
-        """, (role_id,))
+        classes = get_classes_for_role(
+            user_id,
+            role_name
+        )
 
-        classes = c.fetchall()
+        for cls in classes:
 
-        for cls, venue in classes:
-            text += f"   - {cls} ({venue})\n"
+            venue = cls.get("venue_name", "")
 
-    conn.close()
+            text += (
+                f"   - {cls['class_code']} "
+                f"({venue})\n"
+            )
 
     await show_screen(update, context, text, menu_keyboard())
