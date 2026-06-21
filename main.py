@@ -156,7 +156,7 @@ def health():
 @flask_app.route("/webhook", methods=["POST"])
 def webhook():
 
-    print("WEBHOOK RECEIVED", time.time(), flush=True)
+    start_time = time.time()
 
     data = request.get_json(force=True)
 
@@ -165,12 +165,25 @@ def webhook():
         telegram_app.bot
     )
 
-    asyncio.run_coroutine_threadsafe(
+    future = asyncio.run_coroutine_threadsafe(
         telegram_app.process_update(update),
         bot_loop
     )
 
-    print("UPDATE QUEUED", flush=True)
+    try:
+        future.result(timeout=10)
+
+        print(
+            f"Update processed in {time.time() - start_time:.3f}s",
+            flush=True
+        )
+
+    except Exception as e:
+
+        print(
+            f"PROCESS ERROR: {e}",
+            flush=True
+        )
 
     return "OK", 200
 
